@@ -15,4 +15,5 @@ if [ ! -f frontend/dist/index.html ]; then
   (cd frontend && npm install && npm run build)
 fi
 
-exec python3 -m uvicorn backend.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+# --timeout-graceful-shutdown：存在半死 WS 客户端时，优雅关闭最多等 10s 后强制结束，避免进程卡在关闭阶段
+exec python3 -m uvicorn backend.main:app --host 0.0.0.0 --port "${PORT:-8000}" --timeout-graceful-shutdown 10

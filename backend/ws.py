@@ -105,7 +105,8 @@ async def ws_host(ws: WebSocket, host_id: str):
     finally:
         sender.cancel()
         try:
-            await ws.close()
+            # 对端已死时 close 握手会一直等（websockets close_timeout 默认 None），限时 5s
+            await asyncio.wait_for(ws.close(), timeout=5.0)
         except Exception:
             pass
 
@@ -126,6 +127,7 @@ async def ws_portal(ws: WebSocket):
     finally:
         hub.remove(ws)
         try:
-            await ws.close()
+            # 对端已死时 close 握手会一直等（websockets close_timeout 默认 None），限时 5s
+            await asyncio.wait_for(ws.close(), timeout=5.0)
         except Exception:
             pass

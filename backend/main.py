@@ -7,6 +7,9 @@
 """
 import logging
 import os
+import queue
+import sys
+import threading
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -23,6 +26,42 @@ log = logging.getLogger("llamalens.main")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+
+class _AsyncStreamHandler(logging.Handler):
+    """控制台日志处理器：后台线程写 stderr，有界队列，满时丢弃最旧记录。
+
+    事件循环线程绝不能阻塞在控制台输出上：当终端停止读取（如用户长时间
+    离开、pty 缓冲区写满）时，同步 write() 会阻塞整个事件循环，导致所有
+    HTTP/WS 请求挂起（页面刷新卡死）。
+    """
+
+    def __init__(self, stream, maxsize: int = 200):
+        super().__init__()
+        self._stream = stream
+        self._queue: "queue.Queue" = queue.Queue(maxsize=maxsize)
+        self._thread = threading.Thread(target=self._run, name="log-console", daemon=True)
+        self._thread.start()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self._queue.put_nowait(record)
+        except queue.Full:
+            try:
+                self._queue.get_nowait()  # 丢弃最旧，保留最新
+                self._queue.put_nowait(record)
+            except queue.Full:
+                pass
+
+    def _run(self) -> None:
+        while True:
+            record = self._queue.get()
+            try:
+                self._stream.write(self.format(record) + "\n")
+                self._stream.flush()
+            except Exception:
+                pass
+
+
 def setup_logging(base_dir: str) -> None:
     log_dir = os.path.join(base_dir, "logs")
     os.makedirs(log_dir, exist_ok=True)
@@ -30,13 +69,15 @@ def setup_logging(base_dir: str) -> None:
     root = logging.getLogger()
     if not root.handlers:
         root.setLevel(logging.INFO)
-        sh = logging.StreamHandler()
+        sh = _AsyncStreamHandler(sys.stderr)
         sh.setFormatter(fmt)
         root.addHandler(sh)
         fh = logging.FileHandler(os.path.join(log_dir, "llamalens.log"), encoding="utf-8")
         fh.setFormatter(fmt)
         root.addHandler(fh)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    # httpx 每次请求打一行 INFO（每秒轮询），是日志量与终端缓冲压力的主要来源，降为 WARNING
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def create_app(base_dir: Optional[str] = None) -> FastAPI:

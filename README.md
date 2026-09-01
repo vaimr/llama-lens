@@ -23,6 +23,8 @@ llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 
 ✅ **Docker 镜像部署**（2026-08-30）—— 多阶段 Dockerfile + docker-compose，凭证运行时挂载，内置健康检查。
 
+✅ **v1.1.0**（2026-09-01）—— 本地 CLI（llamalens TUI）+ 离线部署包 + 稳定性优化，详见「版本记录」。
+
 ## 文档索引
 
 | 文档 | 说明 |
@@ -193,7 +195,7 @@ hosts:
 
 **四个硬性条件（均可通过 hosts.yaml 配置适配，以下为默认值）**
 
-1. **进程名与 `process.name` 一致**（默认 `llama-server`）：SSH 采集用 `pgrep -x` 精确匹配。二进制不叫 `llama-server`（如 `llama-server-turbo`）时无需改名，在 hosts.yaml 设 `process.name: llama-server-turbo` 即可。
+1. **进程名与 `process.name` 一致**（默认 `llama-server`）：SSH 采集用 `pgrep -x` 精确匹配；进程名超过 15 字符时（内核把 comm 截断到 15 字符）自动回退 cmdline argv[0] basename 匹配，直接设全名即可。二进制不叫 `llama-server`（如 `llama-server-turbo`）时无需改名，在 hosts.yaml 设 `process.name: llama-server-turbo` 即可。
 2. **systemd unit 名与配置一致**：`systemd_unit`（默认 `llama-server.service`，供 `systemctl show` 采集服务状态）与 `log.unit`（默认 `llama-server`，供 `journalctl -u` 采集日志）。unit 不叫 `llama-server.service`（如 `my-llama.service`）时，把这两个字段同步改为实际 unit 名。
 3. **llama-server 监听面板可达的地址:端口**：面板跨主机直连 API，需 `--host 0.0.0.0 --port 8080`（或面板可达的网卡地址），与 hosts.yaml 的 `llama.host`/`llama.port` 一致。
 4. **日志进 journal，不要重定向到文件**：systemd 默认把服务 stdout/stderr 写入 journal，`journalctl -u <unit>` 即可读到；确需写文件时改用 `log.source: file` + `log.path`（见本节末尾）。
@@ -316,6 +318,32 @@ docker run -d --name llamalens -p 8000:8000 \
   llamalens:latest
 ```
 
+离线部署（目标机无网络 / 无构建环境，在构建机导出镜像 tgz）：
+
+```bash
+# 构建机：导出镜像
+docker save llamalens:latest | gzip -c > llamalens-web-<日期>.tgz
+
+# 拷贝到目标机（镜像 + 现有配置）
+scp llamalens-web-<日期>.tgz config/hosts.yaml .env root@<目标机>:/opt/llamalens/
+
+# 目标机：加载并启动（挂载与 compose 部署一致）
+docker load -i /opt/llamalens/llamalens-web-<日期>.tgz
+docker run -d --name llamalens --restart unless-stopped \
+  -p 8000:8000 -e PORT=8000 \
+  -v /opt/llamalens/config/hosts.yaml:/app/config/hosts.yaml:ro \
+  -v /opt/llamalens/.env:/app/.env:ro \
+  -v /opt/llamalens/logs:/app/logs \
+  llamalens:latest
+
+# 验证
+docker ps                            # 约 30s 后 (healthy)
+curl -s localhost:8000/api/health
+```
+
+- 三个挂载：`hosts.yaml`/`.env` 只读、`logs` 持久化（与 compose 一致）
+- 改配置后 `docker restart llamalens` 即生效（配置是挂载的，无需重建镜像）
+
 常用操作：
 
 ```bash
@@ -425,8 +453,69 @@ curl http://<主机>:8000/api/health
 
 交互式 API 文档：`http://<主机>:8000/docs`（FastAPI Swagger）。
 
+## 本地 CLI（llamalens）
+
+在**被监控主机本地**运行的 htop 风格全屏 TUI，与 Web 面板单主机详情页同源（同一套采集字段、阈值、事件）。适合 SSH 登录到主机后直接看实时状态，无需打开浏览器。
+
+**零运行时依赖**：单个静态二进制（`CGO_ENABLED=0`），目标主机无需 Go / Python / pip。数据全部本地直采：
+
+| 数据 | 来源 | 周期 |
+|---|---|---|
+| 生成/预填充速度、上下文、MTP、Slots、模型 | llama-server 本机 HTTP API（`/slots`、`/props`、`/v1/models`）+ journal 日志解析 | 1s / 30s |
+| CPU / 内存 / 磁盘 / 网络 / 负载 / Top 进程 | `/proc` 直读 | 2s |
+| GPU 利用率 / 显存 / 温度 / 功耗 / 占用进程 | `nvidia-smi` | 2s |
+| 服务状态、日志事件流 | `systemctl show` + `journalctl -u <unit> -f` | 2s / 流式 |
+
+### 构建（在开发机，需 Go 1.24+）
+
+```bash
+cd cli
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/llamalens ./cmd/llamalens
+```
+
+产物 `cli/dist/llamalens`（约 8MB，静态链接、已 strip）。
+
+### 部署到被监控主机
+
+```bash
+scp cli/dist/llamalens root@<主机>:/usr/local/bin/llamalens
+ssh root@<主机> chmod +x /usr/local/bin/llamalens
+```
+
+### 使用
+
+```bash
+# 默认：llama-server 127.0.0.1:8080、进程名 llama-server、unit llama-server、日志走 journal
+llamalens
+
+# 自定义（进程名/端口/unit 与 hosts.yaml 保持一致）
+# --process 接受完整二进制名（无 15 字符截断限制，comm 匹配失败时回退 cmdline 匹配）
+llamalens --llama-port 8081 --process llama-server --unit llama-server
+
+# 日志走文件而非 journal
+llamalens --log file --log-path /var/log/llama.log
+
+# 单次文本快照（非 TUI，适合脚本/无 TTY 环境）
+llamalens --once
+
+# 排查终端显示问题：每次渲染帧的原始字节（含 ANSI）写入文件（每次覆盖）
+# 复现时按 p 暂停，文件即保留该帧；cat -v /tmp/frame.txt 查看原始字节
+llamalens --dump-frame /tmp/frame.txt
+
+# 禁用所有颜色（纯文本渲染；排查终端颜色显示问题用）
+llamalens --no-color
+```
+
+**按键**：`q` 退出 · `p` 暂停/恢复 · `t` 显示/隐藏历史趋势 · `g` 显示/隐藏 GPU 区。
+
+**布局**（自上而下）：顶栏（主机/模型/在线/时间）→ 实时总览（Token 速度 / 预填充 / 上下文占用 / MTP 接受率 4 卡）→ GPU（按卡聚合）→ 实时生成任务 + 事件流 → 系统资源（CPU/内存/磁盘/网络）→ 模型与 Slot + 进程 → 历史趋势（8 条 sparkline）。阈值飘红与 Web 面板同源（GPU util 80/90、显存 85/95、温度 75/85、CPU 80/90、磁盘 80/90、上下文 80/90、MTP <80/<65）。
+
+**终端要求**：至少 80×20；需交互式 TTY（`--once` 除外）。退出时自动恢复终端（备用屏/光标/鼠标追踪），无残留。
+
+
 ## 版本记录
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | v1.0.0 | 2026-08-29 | 首个发布版本：多主机实时监控（门户 + 单主机详情）、WS 1s 实时推送、阈值飘红、Top CPU 精度修复（/proc stat 直读）、SSH 断连自愈 |
+| v1.1.0 | 2026-09-01 | 本地 CLI（llamalens TUI，零依赖单二进制，与 Web 同源采集/阈值/事件）；Docker 离线 tgz 交付流程；后端稳定性（异步日志防事件循环阻塞、CUDA 一次性采集、WS 关闭限时、进程名 15 字符 cmdline 回退）；前端标签页隐藏暂停轮询；TUI 修复（GPU 占用 0MB、ANSI256 红色不可见、任务卡状态以 /slots 为准、GPU 进程按卡归属、--dump-frame/--no-color 诊断） |

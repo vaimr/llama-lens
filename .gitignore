@@ -17,3 +17,8 @@ frontend/dist/
 .codex/
 .agents/
 AGENTS.md
+# 本地 CLI 构建产物
+cli/dist/
+
+# 离线部署包（docker save 产物，不入库）
+*.tgz

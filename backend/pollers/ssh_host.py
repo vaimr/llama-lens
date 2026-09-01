@@ -26,8 +26,6 @@ log = logging.getLogger("llamalens.sshpoller")
 BATCH_CMD = r"""
 echo ==GPU==
 nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,utilization.memory,temperature.gpu,power.draw,power.limit,fan.speed,clocks.current.graphics,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current,pstate,temperature.memory,ecc.errors.corrected.volatile.total,ecc.errors.uncorrected.volatile.total,clocks_throttle_reasons.active --format=csv,noheader,nounits 2>/dev/null
-echo ==SMI==
-nvidia-smi 2>/dev/null | sed -n 3p
 echo ==APPS==
 nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader,nounits 2>/dev/null
 echo ==STAT==
@@ -45,7 +43,17 @@ awk '$3 ~ /^(sd|vd|nvme)/ && $3 !~ /p[0-9]+$/ && $3 !~ /^[sv]d[a-z]+[0-9]+$/ {{p
 echo ==DF==
 df -B1 --output=source,target,size,used,avail,pcent {df_mounts} 2>/dev/null
 echo ==PROC==
-PID=$(pgrep -x {process_name} | head -1)
+PID=$(pgrep -x "{process_name}" | head -1)
+if [ -z "$PID" ]; then
+  # comm 被内核截断到 15 字符：长进程名回退 cmdline argv[0] basename 匹配
+  # （不用 basename 命令：argv[0] 可能以 - 开头[如 -zsh]会被当选项解析）
+  for d in /proc/[0-9]*; do
+    a0=$(tr '\0' '\n' < "$d/cmdline" 2>/dev/null | head -n 1)
+    [ -n "$a0" ] || continue
+    case "$a0" in */*) a0=${{a0##*/}} ;; esac
+    [ "$a0" = "{process_name}" ] && PID=${{d##*/}} && break
+  done
+fi
 if [ -n "$PID" ]; then
   echo P:$PID
   awk '{{print $14, $15, $23}}' /proc/$PID/stat 2>/dev/null
@@ -81,6 +89,9 @@ echo ==CORES==
 grep -c '^processor' /proc/cpuinfo
 echo ==MHZ==
 grep -m1 'cpu MHz' /proc/cpuinfo | awk '{print $4}'
+echo ==CUDA==
+# CUDA 版本静态（驱动不升级不变）：一次性采集，避免每 2s 渲染整张 nvidia-smi 表
+nvidia-smi 2>/dev/null | sed -n 3p
 echo ==END==
 """
 
@@ -490,6 +501,7 @@ class SshPoller:
             "top": {"cpu": [], "mem": []},
         }
         self._static_done = False
+        self._cuda_ver: Optional[str] = None
         self._last_ts: Optional[float] = None
         self._stopped = False
 
@@ -514,6 +526,7 @@ class SshPoller:
         cpu["model"] = sec.get("CPUMODEL", "").strip()
         cpu["cores"] = _i(sec.get("CORES", "").strip(), 0)
         cpu["mhz"] = _f(sec.get("MHZ", "").strip())
+        self._cuda_ver = parse_smi_cuda(sec.get("CUDA", ""))
         self._static_done = True
         log.info("[%s] 静态信息: %s", self.host_id, sysinfo)
 
@@ -549,7 +562,7 @@ class SshPoller:
         # GPU + APPS
         gpus = parse_gpu(sec.get("GPU", ""))
         apps = parse_apps(sec.get("APPS", ""))
-        cuda_ver = parse_smi_cuda(sec.get("SMI", ""))
+        cuda_ver = self._cuda_ver
         for g in gpus:
             g["apps"] = apps
             g["cuda"] = cuda_ver

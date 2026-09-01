@@ -394,9 +394,15 @@ const history = ref(null)
 let histTimer = null
 
 async function loadHistory() {
+  // 标签页隐藏时跳过轮询（省 CPU/带宽）；回到前台由 visibilitychange 立即补刷
+  if (typeof document !== 'undefined' && document.hidden) return
   try {
     history.value = await api.history(props.id, winS.value)
   } catch (e) { /* ignore */ }
+}
+
+function onVisibilityChange() {
+  if (typeof document !== 'undefined' && !document.hidden) loadHistory()
 }
 
 function seriesOf(name, opts = {}) {
@@ -508,10 +514,12 @@ const sparkPrompt = computed(() => mapTail('prompt_speed', (v) => v))
 onMounted(() => {
   loadHistory()
   histTimer = setInterval(loadHistory, 5000)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 watch(winS, loadHistory)
 onBeforeUnmount(() => {
   if (histTimer) clearInterval(histTimer)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 
