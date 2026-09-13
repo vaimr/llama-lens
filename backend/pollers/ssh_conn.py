@@ -122,15 +122,64 @@ class SshConnection:
         timeout = timeout or self.cfg.timeout
 
         def _run():
+            import select
             stdin, stdout, stderr = self.client.exec_command(cmd, timeout=timeout)
-            # exec_command 的 timeout 只约束建通道；再给 channel 设空闲超时，
-            # 防止远端命令挂起时 stdout.read() 永久阻塞、线程泄漏
             try:
                 stdout.channel.settimeout(timeout)
             except Exception:
                 pass
-            out = stdout.read().decode("utf-8", "replace")
-            return out
+            try:
+                stderr.channel.settimeout(timeout)
+            except Exception:
+                pass
+            # Read both channels concurrently via select to avoid deadlock
+            stdout_buf = ""
+            stderr_buf = ""
+            while True:
+                channels = []
+                if not stdout_buf:
+                    channels.append(stdout)
+                if not stderr_buf:
+                    channels.append(stderr)
+                if not channels:
+                    break
+                try:
+                    readable, _, _ = select.select(channels, [], [], 0.5)
+                except EOFError:
+                    break
+                except Exception:
+                    break
+                for ch in readable:
+                    try:
+                        data = ch.recv(4096)
+                        if data:
+                            if ch is stdout:
+                                stdout_buf += data.decode("utf-8", "replace")
+                            else:
+                                stderr_buf += data.decode("utf-8", "replace")
+                        else:
+                            if ch is stdout:
+                                stdout_buf = None  # EOF marker
+                            else:
+                                stderr_buf = None  # EOF marker
+                    except EOFError:
+                        if ch is stdout:
+                            stdout_buf = ""  # EOF, stop reading
+                        else:
+                            stderr_buf = ""  # EOF, stop reading
+                    except Exception:
+                        if ch is stdout:
+                            stdout_buf = ""
+                        else:
+                            stderr_buf = ""
+                # If both channels hit EOF, we're done
+                if stdout_buf == "" and stderr_buf == "":
+                    break
+            # Log non-empty stderr at DEBUG (e.g. "nvidia-smi: command not found" on non-GPU hosts)
+            if stderr_buf:
+                trimmed = stderr_buf[:2000]
+                log.debug("[%s] SSH stderr: %s", self.host_id, trimmed)
+            return stdout_buf
 
         try:
             out = await asyncio.get_running_loop().run_in_executor(None, _run)

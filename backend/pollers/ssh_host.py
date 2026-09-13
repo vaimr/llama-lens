@@ -25,9 +25,9 @@ log = logging.getLogger("llamalens.sshpoller")
 
 BATCH_CMD = r"""
 echo ==GPU==
-nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,utilization.memory,temperature.gpu,power.draw,power.limit,fan.speed,clocks.current.graphics,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current,pstate,temperature.memory,ecc.errors.corrected.volatile.total,ecc.errors.uncorrected.volatile.total,clocks_throttle_reasons.active --format=csv,noheader,nounits 2>/dev/null
+nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,utilization.memory,temperature.gpu,power.draw,power.limit,fan.speed,clocks.current.graphics,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current,pstate,temperature.memory,ecc.errors.corrected.volatile.total,ecc.errors.uncorrected.volatile.total,clocks_throttle_reasons.active --format=csv,noheader,nounits
 echo ==APPS==
-nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader,nounits 2>/dev/null
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader,nounits
 echo ==STAT==
 cat /proc/stat
 echo ==MEM==
@@ -41,14 +41,14 @@ cat /proc/net/dev
 echo ==DISKIO==
 awk '$3 ~ /^(sd|vd|nvme)/ && $3 !~ /p[0-9]+$/ && $3 !~ /^[sv]d[a-z]+[0-9]+$/ {{print}}' /proc/diskstats
 echo ==DF==
-df -B1 --output=source,target,size,used,avail,pcent {df_mounts} 2>/dev/null
+df -B1 --output=source,target,size,used,avail,pcent {df_mounts}
 echo ==PROC==
 PID=$(pgrep -x "{process_name}" | head -1)
 if [ -z "$PID" ]; then
   # comm 被内核截断到 15 字符：长进程名回退 cmdline argv[0] basename 匹配
   # （不用 basename 命令：argv[0] 可能以 - 开头[如 -zsh]会被当选项解析）
   for d in /proc/[0-9]*; do
-    a0=$(tr '\0' '\n' < "$d/cmdline" 2>/dev/null | head -n 1)
+    a0=$(tr '\0' '\n' < "$d/cmdline" | head -n 1)
     [ -n "$a0" ] || continue
     case "$a0" in */*) a0=${{a0##*/}} ;; esac
     [ "$a0" = "{process_name}" ] && PID=${{d##*/}} && break
@@ -56,22 +56,22 @@ if [ -z "$PID" ]; then
 fi
 if [ -n "$PID" ]; then
   echo P:$PID
-  awk '{{print $14, $15, $23}}' /proc/$PID/stat 2>/dev/null
-  grep -E '^(VmRSS|VmSize|Threads)' /proc/$PID/status 2>/dev/null
-  ps -o pcpu=,pmem=,etime= -p $PID 2>/dev/null
-  tr '\0' ' ' < /proc/$PID/cmdline 2>/dev/null; echo
+  awk '{{print $14, $15, $23}}' /proc/$PID/stat
+  grep -E '^(VmRSS|VmSize|Threads)' /proc/$PID/status
+  ps -o pcpu=,pmem=,etime= -p $PID
+  tr '\0' ' ' < /proc/$PID/cmdline; echo
 fi
 echo ==PS==
-ps -eo pid,comm,pcpu,pmem,rss --no-headers 2>/dev/null
+ps -eo pid,comm,pcpu,pmem,rss --no-headers
 echo ==PSTICKS==
-awk 'FNR==1 {{ n=split(FILENAME, p, "/"); pid=p[n-1]; i=index($0, ") "); if (i > 0) {{ s=substr($0, i+2); m=split(s, a, " "); if (m >= 13) print pid, a[12], a[13] }} }}' /proc/[0-9]*/stat 2>/dev/null
+awk 'FNR==1 {{ n=split(FILENAME, p, "/"); pid=p[n-1]; i=index($0, ") "); if (i > 0) {{ s=substr($0, i+2); m=split(s, a, " "); if (m >= 13) print pid, a[12], a[13] }} }}' /proc/[0-9]*/stat
 echo ==PROCS==
-ls /proc 2>/dev/null | grep -c '^[0-9]'
+ls /proc | grep -c '^[0-9]'
 echo ==SERVICE==
-systemctl show {systemd_unit} -p Description,ActiveState,SubState,ExecMainStartTimestamp,CPUUsageNSec,MemoryCurrent,MemoryPeak,NTasks 2>/dev/null
+systemctl show {systemd_unit} -p Description,ActiveState,SubState,ExecMainStartTimestamp,CPUUsageNSec,MemoryCurrent,MemoryPeak,NTasks
 echo ==MODELS==
 if [ -n "$PID" ]; then
-  tr '\0' '\n' < /proc/$PID/cmdline 2>/dev/null | awk 'p=="--model"||p=="-m"||p=="--mmproj"{{print; p=""; next}}{{p=$0}}' | xargs -r -d '\n' ls -l 2>/dev/null
+  tr '\0' '\n' < /proc/$PID/cmdline | awk 'p=="--model"||p=="-m"||p=="--mmproj"{{print; p=""; next}}{{p=$0}}' | xargs -r -d '\n' ls -l
 fi
 echo ==END==
 """
@@ -82,16 +82,18 @@ hostname
 echo ==KERNEL==
 uname -r
 echo ==OS==
-. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME"
+. /etc/os-release && echo "$PRETTY_NAME"
 echo ==CPUMODEL==
 grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//'
 echo ==CORES==
 grep -c '^processor' /proc/cpuinfo
 echo ==MHZ==
 grep -m1 'cpu MHz' /proc/cpuinfo | awk '{print $4}'
+echo ==NVSMI==
+command -v nvidia-smi || echo NOT_FOUND
 echo ==CUDA==
 # CUDA 版本静态（驱动不升级不变）：一次性采集，避免每 2s 渲染整张 nvidia-smi 表
-nvidia-smi 2>/dev/null | sed -n 3p
+nvidia-smi | sed -n 3p
 echo ==END==
 """
 
@@ -503,6 +505,7 @@ class SshPoller:
         self._static_done = False
         self._cuda_ver: Optional[str] = None
         self._last_ts: Optional[float] = None
+        self._last_gpu_warn = 0.0
         self._stopped = False
 
     def _build_batch_cmd(self) -> str:
@@ -527,6 +530,11 @@ class SshPoller:
         cpu["cores"] = _i(sec.get("CORES", "").strip(), 0)
         cpu["mhz"] = _f(sec.get("MHZ", "").strip())
         self._cuda_ver = parse_smi_cuda(sec.get("CUDA", ""))
+        nvsmi = sec.get("NVSMI", "").strip() or "?"
+        if nvsmi == "NOT_FOUND" or not nvsmi:
+            log.warning("[%s] nvidia-smi 不存在或不在 PATH: %r — GPU 数据不可用", self.host_id, nvsmi)
+        else:
+            log.info("[%s] nvidia-smi: %s（CUDA %s）", self.host_id, nvsmi, self._cuda_ver or "не определён")
         self._static_done = True
         log.info("[%s] 静态信息: %s", self.host_id, sysinfo)
 
@@ -561,6 +569,13 @@ class SshPoller:
         m = self.metrics
         # GPU + APPS
         gpus = parse_gpu(sec.get("GPU", ""))
+        if not gpus:
+            now = time.time()
+            if now - self._last_gpu_warn > 300:
+                log.warning("[%s] GPU 数据为空：nvidia-smi 未返回任何 GPU 行（stderr 细节见 DEBUG）", self.host_id)
+                self._last_gpu_warn = now
+        else:
+            self._last_gpu_warn = 0.0
         apps = parse_apps(sec.get("APPS", ""))
         cuda_ver = self._cuda_ver
         for g in gpus:
