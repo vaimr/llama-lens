@@ -1,7 +1,7 @@
 <template>
   <div class="model glass">
     <div class="panel-head">
-      <span class="panel-title">模型</span>
+      <span class="panel-title">{{ t('modelInfo.title') }}</span>
       <span v-if="model.owned_by" class="mono faint small">{{ model.owned_by }}</span>
     </div>
 
@@ -10,19 +10,19 @@
         <span class="mname">{{ model.name || '—' }}</span>
         <span v-if="model.ftype" class="badge dim mono">{{ model.ftype }}</span>
       </div>
-      <div class="kv"><span class="k">路径</span><span class="v mono">{{ model.path || '—' }}</span></div>
+      <div class="kv"><span class="k">{{ t('modelInfo.path') }}</span><span class="v mono">{{ model.path || '—' }}</span></div>
       <div class="grid2">
-        <div class="kv"><span class="k">参数量</span><span class="v mono">{{ paramsText }}</span></div>
-        <div class="kv"><span class="k">嵌入维度</span><span class="v mono">{{ fmtNum(model.n_embd) }}</span></div>
-        <div class="kv"><span class="k">词表大小</span><span class="v mono">{{ fmtNum(model.n_vocab) }}</span></div>
+        <div class="kv"><span class="k">{{ t('modelInfo.parameters') }}</span><span class="v mono">{{ paramsText }}</span></div>
+        <div class="kv"><span class="k">{{ t('modelInfo.embedding') }}</span><span class="v mono">{{ fmtNum(model.n_embd) }}</span></div>
+        <div class="kv"><span class="k">{{ t('modelInfo.vocab_size') }}</span><span class="v mono">{{ fmtNum(model.n_vocab) }}</span></div>
         <div class="kv"><span class="k">vocab_type</span><span class="v mono">{{ model.vocab_type ?? '—' }}</span></div>
         <div class="kv"><span class="k">n_ctx</span><span class="v mono">{{ fmtNum(model.n_ctx) }}</span></div>
         <div class="kv"><span class="k">n_ctx_train</span><span class="v mono">{{ fmtNum(model.n_ctx_train) }}</span></div>
-        <div class="kv"><span class="k">文件体积</span><span class="v mono">{{ sizeText }}</span></div>
+        <div class="kv"><span class="k">{{ t('modelInfo.file_size') }}</span><span class="v mono">{{ sizeText }}</span></div>
         <div class="kv"><span class="k">mmproj</span><span class="v mono">{{ mmprojText }}</span></div>
       </div>
       <div class="kv">
-        <span class="k">模态</span>
+        <span class="k">{{ t('modelInfo.modalities') }}</span>
         <span class="v">
           <span class="tag" :class="{ on: modalities.vision }">vision</span>
           <span class="tag" :class="{ on: modalities.video }">video</span>
@@ -30,17 +30,18 @@
         </span>
       </div>
       <div v-if="capabilities.length" class="kv">
-        <span class="k">能力</span>
+        <span class="k">{{ t('modelInfo.capabilities') }}</span>
         <span class="v mono small">{{ capabilities.join(', ') }}</span>
       </div>
     </template>
-    <div v-else class="placeholder"><span class="icon">⌁</span>暂无模型数据</div>
+    <div v-else class="placeholder"><span class="icon">⌁</span>{{ t('modelInfo.no_data') }}</div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { fmtNum, fmtBytes, fmtParams } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   model: { type: Object, default: () => ({}) }

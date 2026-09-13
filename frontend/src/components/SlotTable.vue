@@ -4,26 +4,26 @@
       <div class="panel-head">
         <span class="panel-title">Slot {{ slot.id }}</span>
         <span class="badge" :class="slot.is_processing ? 'ok' : 'dim'">
-          {{ slot.is_processing ? '处理中' : '空闲' }}
+          {{ slot.is_processing ? t('slotTable.processing') : t('slotTable.idle') }}
         </span>
       </div>
 
       <div class="grid2">
-        <div class="kv"><span class="k">任务 ID</span><span class="v mono">#{{ slot.id_task ?? '—' }}</span></div>
+        <div class="kv"><span class="k">{{ t('slotTable.task_id') }}</span><span class="v mono">#{{ slot.id_task ?? '—' }}</span></div>
         <div class="kv"><span class="k">n_ctx</span><span class="v mono">{{ fmtNum(slot.n_ctx) }}</span></div>
         <div class="kv"><span class="k">Prompt tokens</span><span class="v mono">{{ fmtNum(slot.n_prompt_tokens) }}</span></div>
-        <div class="kv"><span class="k">已处理 / 缓存</span><span class="v mono">{{ fmtNum(slot.n_prompt_tokens_processed) }} / {{ fmtNum(slot.n_prompt_tokens_cache) }}</span></div>
-        <div class="kv"><span class="k">已解码</span><span class="v mono">{{ fmtNum(slot.n_decoded) }}</span></div>
-        <div class="kv"><span class="k">剩余</span><span class="v mono">{{ fmtNum(slot.n_remain) }}</span></div>
+        <div class="kv"><span class="k">{{ t('slotTable.processed_cached') }}</span><span class="v mono">{{ fmtNum(slot.n_prompt_tokens_processed) }} / {{ fmtNum(slot.n_prompt_tokens_cache) }}</span></div>
+        <div class="kv"><span class="k">{{ t('slotTable.decoded') }}</span><span class="v mono">{{ fmtNum(slot.n_decoded) }}</span></div>
+        <div class="kv"><span class="k">{{ t('slotTable.remaining') }}</span><span class="v mono">{{ fmtNum(slot.n_remain) }}</span></div>
         <div class="kv">
-          <span class="k">上下文占用</span>
+          <span class="k">{{ t('slotTable.context_usage') }}</span>
           <span class="v mono" :class="ctxClass">{{ ctxText }}</span>
         </div>
-        <div class="kv"><span class="k">投机解码</span><span class="v mono">{{ slot.speculative ? '启用' : '—' }}</span></div>
+        <div class="kv"><span class="k">{{ t('slotTable.speculative_decoding') }}</span><span class="v mono">{{ slot.speculative ? t('slotTable.enabled') : '—' }}</span></div>
       </div>
 
       <div class="kv">
-        <span class="k">速度</span>
+        <span class="k">{{ t('slotTable.speed') }}</span>
         <span class="v mono">
           <span style="color: var(--cyan)">gen {{ (slot.gen_speed_tps || 0).toFixed(1) }} t/s</span>
           <span class="faint"> · </span>
@@ -32,7 +32,7 @@
       </div>
 
       <div class="collapse-head" :class="{ open: openSlots.has(slot.id) }" @click="toggle(slot.id)">
-        <span class="arrow">▸</span> 采样参数（{{ paramRows.length }}）
+        <span class="arrow">▸</span> {{ t('slotTable.sampling_params') }}（{{ paramRows.length }}）
       </div>
       <div class="collapse-body" :class="{ open: openSlots.has(slot.id) }">
         <div class="params">
@@ -43,13 +43,14 @@
         </div>
       </div>
     </div>
-    <div v-if="!slots.length" class="glass placeholder"><span class="icon">⌁</span>暂无 Slot 数据</div>
+    <div v-if="!slots.length" class="glass placeholder"><span class="icon">⌁</span>{{ t('slotTable.no_data') }}</div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { fmtNum } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   slots: { type: Array, default: () => [] }

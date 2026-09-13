@@ -1,12 +1,12 @@
 <template>
   <div class="panel glass" :class="levelClass">
     <div class="panel-head">
-      <span class="panel-title">磁盘</span>
-      <span class="mono dim small">读 {{ readText }} MB/s · 写 {{ writeText }} MB/s</span>
+      <span class="panel-title">{{ t('diskPanel.title') }}</span>
+      <span class="mono dim small">{{ t('diskPanel.read') }} {{ readText }} MB/s · {{ t('diskPanel.write') }} {{ writeText }} MB/s</span>
     </div>
     <table class="tbl mono">
       <thead>
-        <tr><th>挂载点</th><th class="num">容量</th><th class="num">已用</th><th class="num">可用</th><th class="num">使用率</th><th></th></tr>
+        <tr><th>{{ t('diskPanel.mount') }}</th><th class="num">{{ t('diskPanel.capacity') }}</th><th class="num">{{ t('diskPanel.used') }}</th><th class="num">{{ t('diskPanel.available') }}</th><th class="num">{{ t('diskPanel.usage_rate') }}</th><th></th></tr>
       </thead>
       <tbody>
         <tr v-for="m in mounts" :key="m.mount">
@@ -17,7 +17,7 @@
           <td class="num" :class="valClass(m.use_pct)">{{ m.use_pct.toFixed(0) }}%</td>
           <td class="barcell"><div class="bar"><i :class="barClass(m.use_pct)" :style="{ width: m.use_pct + '%' }"></i></div></td>
         </tr>
-        <tr v-if="!mounts.length"><td colspan="6" class="faint">无数据</td></tr>
+        <tr v-if="!mounts.length"><td colspan="6" class="faint">{{ t('diskPanel.no_data') }}</td></tr>
       </tbody>
     </table>
   </div>
@@ -25,6 +25,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { t } from '../i18n'
 
 const props = defineProps({
   disk: { type: Object, default: () => ({}) },

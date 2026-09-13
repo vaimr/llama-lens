@@ -1,12 +1,12 @@
 <template>
   <div class="panel glass">
     <div class="panel-head">
-      <span class="panel-title">网络</span>
-      <span class="mono dim small">{{ ifaces.length }} 个网卡</span>
+      <span class="panel-title">{{ t('netPanel.title') }}</span>
+      <span class="mono dim small">{{ ifaces.length }} {{ t('netPanel.nics') }}</span>
     </div>
     <table class="tbl mono">
       <thead>
-        <tr><th>网卡</th><th class="num">下行</th><th class="num">上行</th><th class="num">累计 ↓</th><th class="num">累计 ↑</th></tr>
+        <tr><th>{{ t('netPanel.interface') }}</th><th class="num">{{ t('netPanel.rx') }}</th><th class="num">{{ t('netPanel.tx') }}</th><th class="num">{{ t('netPanel.cumulative_down') }}</th><th class="num">{{ t('netPanel.cumulative_up') }}</th></tr>
       </thead>
       <tbody>
         <tr v-for="n in ifaces" :key="n.name">
@@ -16,7 +16,7 @@
           <td class="num dim">{{ fmtBytes(n.rx_total_mb * 1024 * 1024) }}</td>
           <td class="num dim">{{ fmtBytes(n.tx_total_mb * 1024 * 1024) }}</td>
         </tr>
-        <tr v-if="!ifaces.length"><td colspan="5" class="faint">无数据</td></tr>
+        <tr v-if="!ifaces.length"><td colspan="5" class="faint">{{ t('netPanel.no_data') }}</td></tr>
       </tbody>
     </table>
   </div>
@@ -25,6 +25,7 @@
 <script setup>
 import { computed } from 'vue'
 import { fmtBytes } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   net: { type: Object, default: () => ({}) }

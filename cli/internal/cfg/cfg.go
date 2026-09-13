@@ -14,6 +14,7 @@ type Config struct {
 	Name            string   // 显示名（默认取 hostname）
 	LlamaHost       string   // llama-server 地址
 	LlamaPort       int      // llama-server 端口
+	LlamaPath       string   // llama-server URL 前缀（可选，如 "v1/llama"）
 	LlamaInterval   float64  // /slots 轮询间隔（秒）
 	LlamaSlowInterval float64 // /props + /v1/models 轮询间隔（秒）
 	LlamaTimeout    float64  // HTTP 超时（秒）
@@ -25,7 +26,7 @@ type Config struct {
 	Mounts          []string // df 监控的挂载点
 	Once            bool     // 单次快照（非 TUI，打印文本后退出）
 	DumpFrame       string   // 每次渲染帧的原始字节写入该文件（排查终端显示问题）
-	NoColor         bool     // 禁用所有颜色（纯 ASCII 渲染，排查终端颜色显示问题）
+	NoColor         bool     // 禁用所有颜色（纯 ASCII 渲染，排查终端颜色显示问题用）
 }
 
 func Default() *Config {
@@ -51,6 +52,7 @@ func Parse(args []string) *Config {
 	fs := flag.NewFlagSet("llamalens", flag.ContinueOnError)
 	fs.StringVar(&c.LlamaHost, "llama-host", c.LlamaHost, "llama-server 地址")
 	fs.IntVar(&c.LlamaPort, "llama-port", c.LlamaPort, "llama-server 端口")
+	fs.StringVar(&c.LlamaPath, "llama-path", c.LlamaPath, "llama-server URL 前缀（可选，如 v1/llama；http://host:port/<path>/v1/models）")
 	fs.Float64Var(&c.LlamaInterval, "llama-interval", c.LlamaInterval, "/slots 轮询间隔（秒）")
 	fs.Float64Var(&c.LlamaSlowInterval, "llama-slow-interval", c.LlamaSlowInterval, "/props 轮询间隔（秒）")
 	fs.Float64Var(&c.LlamaTimeout, "llama-timeout", c.LlamaTimeout, "HTTP 超时（秒）")
@@ -90,7 +92,17 @@ func Parse(args []string) *Config {
 	return c
 }
 
-// LlamaURL 返回 llama-server 基础 URL。
+// LlamaURL 返回 llama-server 基础 URL（不含尾部斜杠）。
+// 若 LlamaPath 为空，返回 "http://host:port"；
+// 否则返回 "http://host:port/<path>"（path 两端斜杠已修剪）。
 func (c *Config) LlamaURL() string {
-	return "http://" + c.LlamaHost + ":" + strconv.Itoa(c.LlamaPort)
+	base := "http://" + c.LlamaHost + ":" + strconv.Itoa(c.LlamaPort)
+	if c.LlamaPath == "" {
+		return base
+	}
+	p := strings.Trim(strings.TrimSpace(c.LlamaPath), "/")
+	if p == "" {
+		return base
+	}
+	return base + "/" + p
 }

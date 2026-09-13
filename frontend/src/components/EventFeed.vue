@@ -1,7 +1,7 @@
 <template>
   <div class="feed glass" :class="{ fill }">
     <div class="feed-head">
-      <span class="section-title" style="margin: 0">事件流</span>
+      <span class="section-title" style="margin: 0">{{ t('eventFeed.title') }}</span>
       <span class="mono faint small">{{ events.length }} / 200</span>
     </div>
     <div ref="box" class="feed-box mono">
@@ -15,15 +15,16 @@
         <span class="lv" :class="'lv-' + e.level">[{{ e.level.toUpperCase() }}]</span>
         <span class="msg">{{ e.msg }}</span>
       </div>
-      <div v-if="!events.length" class="placeholder"><span class="icon">⌁</span>暂无事件</div>
+      <div v-if="!events.length" class="placeholder"><span class="icon">⌁</span>{{ t('eventFeed.no_events') }}</div>
     </div>
-    <button v-if="hasNew && !atBottom" class="new-btn" @click="scrollToBottom">↓ 新事件</button>
+    <button v-if="hasNew && !atBottom" class="new-btn" @click="scrollToBottom">↓ {{ t('eventFeed.new_events') }}</button>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, nextTick, computed } from 'vue'
 import { fmtTimeShort } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   events: { type: Array, default: () => [] },

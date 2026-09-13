@@ -8,8 +8,8 @@
     </div>
 
     <div class="model">
-      <span class="model-name" :class="{ muted: !host.online }">{{ host.model_name || '未加载模型' }}</span>
-      <span v-if="host.n_params" class="model-params mono dim">{{ fmtParams(host.n_params) }} 参数</span>
+      <span class="model-name" :class="{ muted: !host.online }">{{ host.model_name || t('hostCard.no_model') }}</span>
+      <span v-if="host.n_params" class="model-params mono dim">{{ fmtParams(host.n_params) }} {{ t('hostCard.params_suffix') }}</span>
     </div>
 
     <div class="speed" :class="{ muted: !host.online }">
@@ -27,16 +27,16 @@
         <span class="gpu-label mono">GPU{{ g.index }}</span>
         <div class="bar"><i :class="barClass(g.util_pct)" :style="{ width: (g.util_pct || 0) + '%' }"></i></div>
         <span class="gpu-val mono" :class="valClass(g.util_pct)">{{ g.util_pct === null ? '—' : Math.round(g.util_pct) + '%' }}</span>
-        <span class="gpu-mem mono faint">{{ g.mem_pct === null ? '' : '显存 ' + Math.round(g.mem_pct) + '%' }}</span>
+        <span class="gpu-mem mono faint">{{ g.mem_pct === null ? '' : t('hostCard.vram') + ' ' + Math.round(g.mem_pct) + '%' }}</span>
       </div>
-      <div v-if="!host.gpus.length" class="faint small">无 GPU 数据</div>
+      <div v-if="!host.gpus.length" class="faint small">{{ t('hostCard.no_gpu_data') }}</div>
     </div>
 
     <div class="bottom mono">
-      <span>CPU <b :class="valClass(host.cpu_pct)">{{ host.cpu_pct === null ? '—' : Math.round(host.cpu_pct) + '%' }}</b></span>
-      <span>MEM <b :class="valClass(host.mem_pct)">{{ host.mem_pct === null ? '—' : Math.round(host.mem_pct) + '%' }}</b></span>
-      <span v-if="!host.ssh_ok" class="lv-warn">SSH 断开</span>
-      <span v-if="!host.online" class="lv-danger">llama 离线</span>
+      <span>{{ t('hostCard.cpu') }} <b :class="valClass(host.cpu_pct)">{{ host.cpu_pct === null ? '—' : Math.round(host.cpu_pct) + '%' }}</b></span>
+      <span>{{ t('hostCard.mem') }} <b :class="valClass(host.mem_pct)">{{ host.mem_pct === null ? '—' : Math.round(host.mem_pct) + '%' }}</b></span>
+      <span v-if="!host.ssh_ok" class="lv-warn">{{ t('hostCard.ssh_disconnected') }}</span>
+      <span v-if="!host.online" class="lv-danger">{{ t('hostCard.llama_offline') }}</span>
     </div>
   </router-link>
 </template>
@@ -44,6 +44,7 @@
 <script setup>
 import { computed } from 'vue'
 import { fmtParams, sparkPath, useCountUp, alertLevel } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   host: { type: Object, required: true }

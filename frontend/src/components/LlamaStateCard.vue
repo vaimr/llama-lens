@@ -2,15 +2,15 @@
   <div class="state-card glass" :class="cardClass">
     <div class="head">
       <span class="phase" :class="phaseClass">{{ phaseText }}</span>
-      <span v-if="logAvailable" class="badge ok small">日志实时</span>
-      <span v-else class="badge dim small">日志不可用 · API 数据</span>
-      <span v-if="elapsedText" class="elapsed mono small">已运行 {{ elapsedText }}</span>
+      <span v-if="logAvailable" class="badge ok small">{{ t('llamaState.log_live') }}</span>
+      <span v-else class="badge dim small">{{ t('llamaState.log_unavailable') }}</span>
+      <span v-if="elapsedText" class="elapsed mono small">{{ t('llamaState.running') }} {{ elapsedText }}</span>
     </div>
 
     <template v-if="logAvailable">
       <div class="kv" v-if="state.task_id !== null && state.task_id !== undefined">
-        <span class="k">任务 ID</span>
-        <span class="v mono">#{{ state.task_id }}<span v-if="state.is_child" class="dim"> · 子任务</span><span v-if="slotInfo" class="dim"> · slot {{ slotInfo }}</span></span>
+        <span class="k">{{ t('llamaState.task_id') }}</span>
+        <span class="v mono">#{{ state.task_id }}<span v-if="state.is_child" class="dim"> · {{ t('llamaState.child_task') }}</span><span v-if="slotInfo" class="dim"> · {{ t('llamaState.slot') }} {{ slotInfo }}</span></span>
       </div>
 
       <template v-if="phase === 'prompt_processing'">
@@ -20,34 +20,34 @@
         </div>
         <div class="stat3">
           <div class="stat">
-            <span class="s-label">Prompt 速度</span>
+            <span class="s-label">{{ t('llamaState.prompt_speed') }}</span>
             <span class="s-val mono green">{{ state.prompt_speed_tps === null ? '—' : state.prompt_speed_tps.toFixed(1) }}</span>
             <span class="s-unit">t/s</span>
           </div>
           <div class="stat">
-            <span class="s-label">已处理 Prompt</span>
+            <span class="s-label">{{ t('llamaState.prompt_processed') }}</span>
             <span class="s-val mono">{{ promptProcessed === null ? '—' : fmtNum(promptProcessed) }}</span>
             <span class="s-unit">/ {{ promptTotal ? fmtNum(promptTotal) : '—' }}</span>
           </div>
           <div class="stat">
-            <span class="s-label">已耗时</span>
+            <span class="s-label">{{ t('llamaState.elapsed') }}</span>
             <span class="s-val mono">{{ state.prompt_elapsed_s === null ? '—' : state.prompt_elapsed_s.toFixed(1) }}</span>
             <span class="s-unit">s</span>
           </div>
         </div>
         <div class="kv-grid">
           <div class="kv" v-if="promptTotal">
-            <span class="k">Prompt 总量</span><span class="v mono">{{ fmtNum(promptTotal) }} tokens</span>
+            <span class="k">{{ t('llamaState.prompt_total') }}</span><span class="v mono">{{ fmtNum(promptTotal) }} tokens</span>
           </div>
           <div class="kv" v-if="prefillEta !== null">
-            <span class="k">预计剩余</span><span class="v mono" style="color: var(--green)">{{ fmtDuration(prefillEta) }}</span>
+            <span class="k">{{ t('llamaState.eta_remaining') }}</span><span class="v mono" style="color: var(--green)">{{ fmtDuration(prefillEta) }}</span>
           </div>
           <div class="kv" v-if="ctx.total">
-            <span class="k">上下文占用</span>
+            <span class="k">{{ t('llamaState.context_usage') }}</span>
             <span class="v mono">{{ fmtNum(ctx.used) }} / {{ fmtNum(ctx.total) }} <span class="dim">({{ ctx.pct }}%)</span></span>
           </div>
           <div class="kv" v-if="cacheHit !== null">
-            <span class="k">KV 缓存命中</span><span class="v mono" style="color: var(--green)">{{ (cacheHit * 100).toFixed(1) }}%</span>
+            <span class="k">{{ t('llamaState.kv_cache_hit') }}</span><span class="v mono" style="color: var(--green)">{{ (cacheHit * 100).toFixed(1) }}%</span>
           </div>
         </div>
       </template>
@@ -55,17 +55,17 @@
       <template v-else-if="phase === 'decoding'">
         <div class="stat3">
           <div class="stat">
-            <span class="s-label">已解码</span>
+            <span class="s-label">{{ t('llamaState.decoded') }}</span>
             <span class="s-val mono cyan">{{ fmtNum(state.n_decoded) }}</span>
             <span class="s-unit">tokens</span>
           </div>
           <div class="stat">
-            <span class="s-label">实时速度 (3s)</span>
+            <span class="s-label">{{ t('llamaState.realtime_speed') }}</span>
             <span class="s-val mono cyan">{{ state.tg_3s_tps === null ? '—' : state.tg_3s_tps.toFixed(2) }}</span>
             <span class="s-unit">t/s</span>
           </div>
           <div class="stat">
-            <span class="s-label">任务均速</span>
+            <span class="s-label">{{ t('llamaState.avg_speed') }}</span>
             <span class="s-val mono dim">{{ state.tg_tps === null ? '—' : state.tg_tps.toFixed(2) }}</span>
             <span class="s-unit">t/s</span>
           </div>
@@ -75,56 +75,56 @@
           <span class="mono small dim">{{ (genProgress * 100).toFixed(0) }}%</span>
         </div>
         <div class="kv" v-if="genEta !== null">
-          <span class="k">预计完成</span><span class="v mono" style="color: var(--cyan)">{{ fmtDuration(genEta) }}</span>
+          <span class="k">{{ t('llamaState.eta_completion') }}</span><span class="v mono" style="color: var(--cyan)">{{ fmtDuration(genEta) }}</span>
         </div>
         <div class="kv-grid">
           <div class="kv" v-if="ctx.total">
-            <span class="k">上下文占用</span>
+            <span class="k">{{ t('llamaState.context_usage') }}</span>
             <span class="v mono">{{ fmtNum(ctx.used) }} / {{ fmtNum(ctx.total) }} <span class="dim">({{ ctx.pct }}%)</span></span>
           </div>
           <div class="kv" v-if="mtp.acceptance !== null && mtp.acceptance !== undefined">
-            <span class="k">MTP 接受率</span>
+            <span class="k">{{ t('llamaState.mtp_acceptance_rate') }}</span>
             <span class="v mono" :class="mtpClass">{{ (mtp.acceptance * 100).toFixed(1) }}%<span v-if="mtp.accepted !== null && mtp.accepted !== undefined" class="dim"> · {{ mtp.accepted }}/{{ mtp.generated }}</span></span>
           </div>
           <div class="kv">
-            <span class="k">剩余 tokens</span><span class="v mono">{{ nRemainText }}</span>
+            <span class="k">{{ t('llamaState.remaining_tokens') }}</span><span class="v mono">{{ nRemainText }}</span>
           </div>
           <div class="kv" v-if="promptTotal">
-            <span class="k">Prompt 总量</span><span class="v mono">{{ fmtNum(promptTotal) }} tokens</span>
+            <span class="k">{{ t('llamaState.prompt_total') }}</span><span class="v mono">{{ fmtNum(promptTotal) }} tokens</span>
           </div>
           <div class="kv" v-if="cacheHit !== null">
-            <span class="k">缓存命中</span><span class="v mono" style="color: var(--green)">{{ (cacheHit * 100).toFixed(1) }}%</span>
+            <span class="k">{{ t('llamaState.cache_hit') }}</span><span class="v mono" style="color: var(--green)">{{ (cacheHit * 100).toFixed(1) }}%</span>
           </div>
           <div class="kv" v-if="graphsReused !== null">
-            <span class="k">Graphs 复用</span><span class="v mono">{{ graphsReused }}</span>
+            <span class="k">{{ t('llamaState.graphs_reused') }}</span><span class="v mono">{{ graphsReused }}</span>
           </div>
         </div>
       </template>
 
       <template v-else>
-        <div class="idle-note">空闲 · 等待新任务</div>
+        <div class="idle-note">{{ t('llamaState.idle') }}</div>
         <div class="kv" v-if="ctx.total">
-          <span class="k">上下文占用</span>
+          <span class="k">{{ t('llamaState.context_usage') }}</span>
           <span class="v mono">{{ fmtNum(ctx.used) }} / {{ fmtNum(ctx.total) }} <span class="dim">({{ ctx.pct }}%)</span></span>
         </div>
         <div v-if="lastTask" class="last-task small dim">
-          上一任务 #{{ lastTask.task_id }}：{{ lastTask.total_tokens || lastTask.decoded_tokens || '—' }} tokens
-          <template v-if="lastTask.gen_speed_tps"> · 均速 {{ lastTask.gen_speed_tps.toFixed(1) }} t/s</template>
+          {{ t('llamaState.last_task') }} #{{ lastTask.task_id }}：{{ lastTask.total_tokens || lastTask.decoded_tokens || '—' }} tokens
+          <template v-if="lastTask.gen_speed_tps"> · {{ t('llamaState.avg_speed') }} {{ lastTask.gen_speed_tps.toFixed(1) }} t/s</template>
           <template v-if="lastTask.mtp && lastTask.mtp.acceptance !== null"> · MTP {{ (lastTask.mtp.acceptance * 100).toFixed(1) }}%</template>
         </div>
         <div class="kv-grid" v-if="lastTask">
           <div class="kv" v-if="lastTask.total_ms">
-            <span class="k">总耗时</span><span class="v mono">{{ fmtDuration(lastTask.total_ms / 1000) }}</span>
+            <span class="k">{{ t('llamaState.total_time') }}</span><span class="v mono">{{ fmtDuration(lastTask.total_ms / 1000) }}</span>
           </div>
           <div class="kv" v-if="lastTask.prompt_ms">
-            <span class="k">预填充耗时</span>
+            <span class="k">{{ t('llamaState.prefill_time') }}</span>
             <span class="v mono">{{ fmtDuration(lastTask.prompt_ms / 1000) }}<template v-if="lastTask.prompt_speed_tps"> @ {{ lastTask.prompt_speed_tps.toFixed(0) }} t/s</template></span>
           </div>
           <div class="kv" v-if="lastTask.eval_ms">
-            <span class="k">生成耗时</span><span class="v mono">{{ fmtDuration(lastTask.eval_ms / 1000) }}</span>
+            <span class="k">{{ t('llamaState.gen_time') }}</span><span class="v mono">{{ fmtDuration(lastTask.eval_ms / 1000) }}</span>
           </div>
           <div class="kv" v-if="lastTask.graphs_reused !== null && lastTask.graphs_reused !== undefined">
-            <span class="k">Graphs 复用</span><span class="v mono">{{ lastTask.graphs_reused }}</span>
+            <span class="k">{{ t('llamaState.graphs_reused') }}</span><span class="v mono">{{ lastTask.graphs_reused }}</span>
           </div>
         </div>
       </template>
@@ -136,13 +136,14 @@
       </div>
     </template>
 
-    <div v-else class="placeholder"><span class="icon">⌁</span>日志不可用，使用 API 数据</div>
+    <div v-else class="placeholder"><span class="icon">⌁</span>{{ t('llamaState.log_unavailable_api') }}</div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { fmtNum, fmtDuration } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   log: { type: Object, default: () => ({}) },
@@ -205,11 +206,11 @@ const prefillEta = computed(() => {
 
 const phase = computed(() => state.value.phase || 'idle')
 const phaseText = computed(() => {
-  if (!props.online) return 'llama 离线'
-  if (!logAvailable.value) return '未知（API）'
-  if (phase.value === 'prompt_processing') return 'Prompt 处理中'
-  if (phase.value === 'decoding') return '生成中'
-  return '空闲'
+  if (!props.online) return t('llamaState.offline')
+  if (!logAvailable.value) return t('llamaState.unknown')
+  if (phase.value === 'prompt_processing') return t('llamaState.prompt_processing')
+  if (phase.value === 'decoding') return t('llamaState.generating')
+  return t('llamaState.idle')
 })
 const phaseClass = computed(() => {
   if (!props.online) return 'lv-danger'
@@ -225,7 +226,7 @@ const nRemain = computed(() => {
   const n = s && s.n_remain
   return typeof n === 'number' && n > 0 ? n : null
 })
-const nRemainText = computed(() => (nRemain.value === null ? '不限' : fmtNum(nRemain.value)))
+const nRemainText = computed(() => (nRemain.value === null ? t('llamaState.unlimited') : fmtNum(nRemain.value)))
 const genProgress = computed(() => {
   if (nRemain.value === null) return null
   const d = state.value.n_decoded || 0
@@ -254,10 +255,10 @@ const elapsedText = computed(() => (elapsed.value === null ? '' : fmtDuration(el
 const cfgRows = computed(() => {
   const f = props.flags || {}
   const out = []
-  if (f.spec_type) out.push(['Spec 解码', `${f.spec_type}×${f.spec_draft_n_max ?? '?'}`])
-  if (f.cache_type_k || f.cache_type_v) out.push(['KV 缓存', `${f.cache_type_k || '—'} / ${f.cache_type_v || '—'}`])
-  if (f.batch) out.push(['批大小', `${f.batch}${f.ubatch ? ' / ' + f.ubatch : ''}`])
-  if (f.n_gpu_layers) out.push(['GPU 层数', f.n_gpu_layers])
+  if (f.spec_type) out.push([t('llamaState.spec_decoding'), `${f.spec_type}×${f.spec_draft_n_max ?? '?'}`])
+  if (f.cache_type_k || f.cache_type_v) out.push([t('llamaState.kv_cache'), `${f.cache_type_k || '—'} / ${f.cache_type_v || '—'}`])
+  if (f.batch) out.push([t('llamaState.batch_size'), `${f.batch}${f.ubatch ? ' / ' + f.ubatch : ''}`])
+  if (f.n_gpu_layers) out.push([t('llamaState.gpu_layers'), f.n_gpu_layers])
   return out
 })
 </script>

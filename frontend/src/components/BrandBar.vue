@@ -2,16 +2,17 @@
   <header class="brandbar">
     <div class="brand">
       <span class="logo">◉</span>
-      <span class="name">llama灵境</span>
-      <span class="sub">llama-server 实时监控</span>
+      <span class="name">{{ t('brand.name') }}</span>
+      <span class="sub">{{ t('brand.sub') }}</span>
     </div>
     <div class="stats mono">
-      <span>主机 <b>{{ hostsTotal }}</b></span>
+      <span>{{ t('brandBar.hosts') }} <b>{{ hostsTotal }}</b></span>
       <span class="sep">·</span>
-      <span>在线 <b class="lv-green">{{ onlineCount }}</b></span>
+      <span>{{ t('brandBar.online') }} <b class="lv-green">{{ onlineCount }}</b></span>
       <span v-if="totalSpeed > 0" class="sep">·</span>
-      <span v-if="totalSpeed > 0">Token 速度 <b class="lv-cyan">{{ totalSpeed.toFixed(1) }} tok/s</b></span>
-      <span class="conn" :class="connected ? 'ok' : 'bad'">{{ connected ? 'WS 实时' : '轮询中' }}</span>
+      <span v-if="totalSpeed > 0">{{ t('brandBar.speed') }} <b class="lv-cyan">{{ totalSpeed.toFixed(1) }} tok/s</b></span>
+      <span class="conn" :class="connected ? 'ok' : 'bad'">{{ connected ? t('brandBar.ws_realtime') : t('brandBar.polling') }}</span>
+      <LanguageSwitcher />
       <ThemeSwitcher />
       <span class="clock-sep"></span>
       <LiveClock />
@@ -22,8 +23,10 @@
 <script setup>
 import { computed, watch } from 'vue'
 import LiveClock from './LiveClock.vue'
+import LanguageSwitcher from './LanguageSwitcher.vue'
 import ThemeSwitcher from './ThemeSwitcher.vue'
 import { totalSpeed as globalSpeed } from '../speed'
+import { t } from '../i18n'
 
 const props = defineProps({
   hosts: { type: Array, default: () => [] },

@@ -1,22 +1,22 @@
 <template>
   <div class="panel glass" :class="levelClass">
     <div class="panel-head">
-      <span class="panel-title">内存</span>
-      <span class="mono dim small">{{ fmtNum(totalMb, 0) }} MB 总量</span>
+      <span class="panel-title">{{ t('memPanel.title') }}</span>
+      <span class="mono dim small">{{ fmtNum(totalMb, 0) }} MB {{ t('memPanel.total') }}</span>
     </div>
 
     <div class="stack-bar">
-      <i class="used" :style="{ width: usedPct + '%' }" :title="`已用 ${fmtNum(usedMb, 0)} MB`"></i>
+      <i class="used" :style="{ width: usedPct + '%' }" :title="`${t('memPanel.used')} ${fmtNum(usedMb, 0)} MB`"></i>
       <i class="cache" :style="{ width: cachePct + '%' }" :title="`buff/cache ${fmtNum(cacheMb, 0)} MB`"></i>
     </div>
     <div class="legend small mono">
-      <span><i class="sw used"></i>已用 {{ fmtNum(usedMb, 0) }} MB</span>
+      <span><i class="sw used"></i>{{ t('memPanel.used') }} {{ fmtNum(usedMb, 0) }} MB</span>
       <span><i class="sw cache"></i>buff/cache {{ fmtNum(cacheMb, 0) }} MB</span>
-      <span><i class="sw free"></i>可用 {{ fmtNum(availMb, 0) }} MB</span>
+      <span><i class="sw free"></i>{{ t('memPanel.available') }} {{ fmtNum(availMb, 0) }} MB</span>
     </div>
 
     <div class="kv-row">
-      <div class="kv"><span class="k">使用率</span><span class="v mono" :class="levelClass">{{ usedPctText }}</span></div>
+      <div class="kv"><span class="k">{{ t('memPanel.usage_rate') }}</span><span class="v mono" :class="levelClass">{{ usedPctText }}</span></div>
       <div class="kv"><span class="k">Swap</span><span class="v mono">{{ swapText }}</span></div>
     </div>
   </div>
@@ -25,6 +25,7 @@
 <script setup>
 import { computed } from 'vue'
 import { fmtNum } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   mem: { type: Object, default: () => ({}) },
@@ -42,7 +43,7 @@ const usedPctText = computed(() => (totalMb.value ? usedPct.value.toFixed(1) + '
 const swapText = computed(() => {
   const st = props.mem.swap_total_mb || 0
   const su = props.mem.swap_used_mb ?? 0
-  return st ? `${fmtNum(su, 0)} / ${fmtNum(st, 0)} MB` : '无'
+  return st ? `${fmtNum(su, 0)} / ${fmtNum(st, 0)} MB` : t('memPanel.no_swap')
 })
 
 const level = computed(() => {

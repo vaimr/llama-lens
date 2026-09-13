@@ -1,7 +1,7 @@
 <template>
   <div class="top glass">
     <div class="panel-head">
-      <span class="panel-title">{{ mode === 'cpu' ? 'Top CPU' : 'Top 内存' }}</span>
+      <span class="panel-title">{{ mode === 'cpu' ? t('topProcessTable.top_cpu') : t('topProcessTable.top_memory') }}</span>
       <span class="mono faint small">Top {{ rows.length }}</span>
     </div>
     <table class="tbl mono">
@@ -13,7 +13,7 @@
         <col class="c-num" />
       </colgroup>
       <thead>
-        <tr><th class="num">PID</th><th>进程</th><th class="num">CPU%</th><th class="num">MEM%</th><th class="num">RSS</th></tr>
+        <tr><th class="num">PID</th><th>{{ t('topProcessTable.process') }}</th><th class="num">CPU%</th><th class="num">MEM%</th><th class="num">RSS</th></tr>
       </thead>
       <tbody>
         <tr v-for="r in rows" :key="r.pid">
@@ -23,7 +23,7 @@
           <td class="num">{{ r.mem_pct.toFixed(1) }}</td>
           <td class="num dim">{{ fmtBytes(r.rss_mb * 1024 * 1024) }}</td>
         </tr>
-        <tr v-if="!rows.length"><td colspan="5" class="faint">无数据</td></tr>
+        <tr v-if="!rows.length"><td colspan="5" class="faint">{{ t('topProcessTable.no_data') }}</td></tr>
       </tbody>
     </table>
   </div>
@@ -31,6 +31,7 @@
 
 <script setup>
 import { fmtBytes } from '../utils'
+import { t } from '../i18n'
 
 defineProps({
   rows: { type: Array, default: () => [] },

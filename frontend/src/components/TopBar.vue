@@ -1,6 +1,6 @@
 <template>
   <header class="topbar">
-    <router-link to="/" class="back">← 门户</router-link>
+    <router-link to="/" class="back">← {{ t('topBar.back') }}</router-link>
     <div class="host-info">
       <span class="dot" :class="dotClass"></span>
       <span class="hostname">{{ hostName }}</span>
@@ -9,41 +9,42 @@
 
     <div v-if="stats" class="stats">
       <span class="stat" :class="genLevel" :title="genTip">
-        <span class="k">速度</span><span class="v mono">{{ genText }}</span>
+        <span class="k">{{ t('topBar.speed') }}</span><span class="v mono">{{ genText }}</span>
       </span>
       <span class="stat" :class="mtpLevel" :title="mtpTip">
         <span class="k">MTP</span><span class="v mono">{{ mtpText }}</span>
       </span>
       <span class="stat" :class="ctxLevel" :title="ctxTip">
-        <span class="k">上下文</span><span class="v mono">{{ ctxText }}</span>
+        <span class="k">{{ t('topBar.context') }}</span><span class="v mono">{{ ctxText }}</span>
       </span>
-      <span v-for="g in gpuChips" :key="g.idx" class="stat" :class="g.level" :title="`GPU${g.idx} 利用率 / 温度 / 功耗 / 显存已用 / 总量`">
+      <span v-for="g in gpuChips" :key="g.idx" class="stat" :class="g.level" :title="`GPU${g.idx} ${t('topBar.util_temp_power_mem')}`">
         <span class="k">GPU{{ g.idx }}</span><span class="v mono">{{ g.text }}</span>
       </span>
       <span class="stat" :class="memLevel" :title="memTip">
-        <span class="k">内存</span><span class="v mono">{{ memText }}</span>
+        <span class="k">{{ t('topBar.memory') }}</span><span class="v mono">{{ memText }}</span>
       </span>
-      <span class="stat" :class="cpuLevel" title="CPU 利用率">
+      <span class="stat" :class="cpuLevel" :title="t('topBar.cpu_util')">
         <span class="k">CPU</span><span class="v mono">{{ cpuText }}</span>
       </span>
     </div>
 
     <div class="right">
+      <LanguageSwitcher />
       <ThemeSwitcher />
-      <span v-if="!llamaOnline" class="badge danger">llama 离线</span>
-      <span v-else-if="!sshOk" class="badge warn">SSH 断开</span>
-      <span v-else class="badge ok">在线</span>
+      <span v-if="!llamaOnline" class="badge danger">{{ t('topBar.llama_offline') }}</span>
+      <span v-else-if="!sshOk" class="badge warn">{{ t('topBar.ssh_disconnected') }}</span>
+      <span v-else class="badge ok">{{ t('topBar.online') }}</span>
       <LiveClock />
 
-      <span class="mode-indicator" :class="modeDotClass" title="数据通道"></span>
+      <span class="mode-indicator" :class="modeDotClass" :title="t('topBar.data_channel')"></span>
       <select :value="mode" class="mode-select mono" @change="onModeChange">
-        <option value="ws">实时 (WS)</option>
+        <option value="ws">{{ t('topBar.realtime') }}</option>
         <option value="1s">1s</option>
         <option value="2s">2s</option>
         <option value="5s">5s</option>
-        <option value="paused">暂停</option>
+        <option value="paused">{{ t('topBar.paused') }}</option>
       </select>
-      <span v-if="degraded" class="badge warn small">WS 断线 · 轮询中</span>
+      <span v-if="degraded" class="badge warn small">{{ t('topBar.ws_disconnected') }}</span>
     </div>
   </header>
 </template>
@@ -52,7 +53,9 @@
 import { computed } from 'vue'
 import { fmtTokens, fmtGB, alertLevel } from '../utils'
 import LiveClock from './LiveClock.vue'
+import LanguageSwitcher from './LanguageSwitcher.vue'
 import ThemeSwitcher from './ThemeSwitcher.vue'
+import { t } from '../i18n'
 
 const props = defineProps({
   hostName: { type: String, default: '' },
@@ -82,7 +85,7 @@ const genText = computed(() => {
 const genTip = computed(() => {
   const s = st.value
   if (!s.online) return 'llama offline'
-  return `gen ${num(s.gen) || 0} t/s · prompt ${num(s.prompt) || 0} t/s · 来源 ${s.speedSource || '—'}`
+  return `gen ${num(s.gen) || 0} t/s · prompt ${num(s.prompt) || 0} t/s · ${t('topBar.source')} ${s.speedSource || '—'}`
 })
 const genLevel = computed(() => (st.value.online ? 'normal' : 'off'))
 
@@ -90,7 +93,7 @@ const mtpText = computed(() => {
   const v = num(st.value.mtp)
   return v === null ? '—' : `${v.toFixed(1)}%`
 })
-const mtpTip = computed(() => (num(st.value.mtp) === null ? '等待任务结束' : 'MTP draft 接受率'))
+const mtpTip = computed(() => (num(st.value.mtp) === null ? t('topBar.wait_task_end') : t('topBar.mtp_acceptance')))
 const mtpLevel = computed(() => (num(st.value.mtp) === null ? 'off' : alertLevel(alerts.value, 'mtp')))
 
 const ctxText = computed(() => {
@@ -101,8 +104,8 @@ const ctxText = computed(() => {
 const ctxTip = computed(() => {
   const s = st.value
   const r = num(s.ctxRemain)
-  if (r === null) return '等待任务结束'
-  return `剩余 ${fmtTokens(r)} · 已用 ${fmtTokens(s.ctxUsed)} (${num(s.ctxPct) === null ? '—' : s.ctxPct}%)`
+  if (r === null) return t('topBar.wait_task_end')
+  return `${t('topBar.remaining')} ${fmtTokens(r)} · ${t('topBar.used')} ${fmtTokens(s.ctxUsed)} (${num(s.ctxPct) === null ? '—' : s.ctxPct}%)`
 })
 const ctxLevel = computed(() => (num(st.value.ctxRemain) === null ? 'off' : alertLevel(alerts.value, 'ctx')))
 
@@ -127,7 +130,7 @@ const memText = computed(() => {
 const memTip = computed(() => {
   const s = st.value
   const u = num(s.memUsed)
-  return u === null || !s.memTotal ? '数据不可用（SSH 断开）' : `内存已用 ${fmtGB(u)} / 总量 ${fmtGB(s.memTotal)}`
+  return u === null || !s.memTotal ? t('topBar.no_data_ssh') : `${t('topBar.mem_used')} ${fmtGB(u)} / ${t('topBar.total')} ${fmtGB(s.memTotal)}`
 })
 const memLevel = computed(() => (num(st.value.memUsed) === null ? 'off' : alertLevel(alerts.value, 'mem')))
 

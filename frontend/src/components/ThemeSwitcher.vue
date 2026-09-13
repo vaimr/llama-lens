@@ -1,6 +1,6 @@
 <template>
   <label class="theme-switch">
-    <span class="ts-label">主题</span>
+    <span class="ts-label">{{ t('themeSwitcher.label') }}</span>
     <select :value="themeState.id" @change="onChange">
       <option v-for="t in THEMES" :key="t.id" :value="t.id">{{ t.label }}</option>
     </select>
@@ -9,6 +9,7 @@
 
 <script setup>
 import { THEMES, themeState, setTheme } from '../theme'
+import { t } from '../i18n'
 
 function onChange(e) {
   setTheme(e.target.value)

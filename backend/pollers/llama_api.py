@@ -72,6 +72,12 @@ class LlamaPoller:
     def __init__(self, cfg: HostConfig, events: EventDetector):
         self.cfg = cfg
         self.events = events
+        # URL prefix: path "v1/llama" → "/v1/llama", empty → ""
+        raw_path = cfg.llama.path
+        if raw_path:
+            self._prefix = "/" + raw_path
+        else:
+            self._prefix = ""
         self.state: Dict[str, Any] = {
             "online": False,
             "model": {},
@@ -88,11 +94,13 @@ class LlamaPoller:
 
     # ------------------------------------------------------------------
     async def start(self) -> None:
-        log.info("[%s] LlamaPoller 启动 %s:%s（%.1fs / 慢 %.1fs）",
-                 self.cfg.id, self.cfg.llama.host, self.cfg.llama.port,
+        host = self.cfg.llama.host
+        port = self.cfg.llama.port
+        log.info("[%s] LlamaPoller 启动 %s:%s%s（%.1fs / 慢 %.1fs）",
+                 self.cfg.id, host, port, self._prefix,
                  self.cfg.llama.interval, self.cfg.llama.slow_interval)
         self._client = httpx.AsyncClient(
-            base_url=_base_url(self.cfg.llama.host, self.cfg.llama.port),
+            base_url=_base_url(host, port),
             timeout=self.cfg.llama.timeout,
         )
         last_slow = 0.0
@@ -119,7 +127,7 @@ class LlamaPoller:
     async def _poll_fast(self, now: float) -> None:
         try:
             # /slots 即可判定在线（模型未加载 503 / 服务宕机连接失败），无需再发 /health
-            resp = await self._client.get("/slots")
+            resp = await self._client.get(self._prefix + "/slots")
             resp.raise_for_status()
             data = resp.json()
         except Exception as e:
@@ -247,14 +255,14 @@ class LlamaPoller:
     async def _poll_slow(self, now: float) -> None:
         model = dict(self.state["model"] or {})
         try:
-            resp = await self._client.get("/props")
+            resp = await self._client.get(self._prefix + "/props")
             resp.raise_for_status()
             props = resp.json()
             model.update(self._parse_props(props))
         except Exception as e:
             log.debug("[%s] /props 失败: %s", self.cfg.id, e)
         try:
-            resp = await self._client.get("/v1/models")
+            resp = await self._client.get(self._prefix + "/v1/models")
             resp.raise_for_status()
             data = (resp.json() or {}).get("data") or []
             if data:

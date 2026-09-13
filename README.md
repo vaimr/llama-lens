@@ -1,5 +1,7 @@
 # llama灵境
 
+[![English Docs](https://img.shields.io/badge/English-Docs-blue)](docs/README.en.md) [![Русская документация](https://img.shields.io/badge/Русская-документация-blue)](docs/README.ru.md)
+
 llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 
 - **门户页**：所有主机状态一览（状态/模型/token 速度/GPU/CPU/内存）
@@ -7,6 +9,7 @@ llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 - **实时**：WebSocket 1s 推送（可配置 1s/2s/5s/暂停），断线自动降级轮询
 - **阈值飘红**：黄/红两级色阶，可按主机配置
 - **9 套主题**：Aurora / Terminal / Light / Monokai / Nord / Dracula / Synthwave '84 / Tokyo Night / Matrix
+- **双语界面**：English / Русский，右上角语言切换
 - **部署**：原生单进程或 Docker 镜像，二选一
 
 ![alt text](docs/image0.png)
@@ -29,9 +32,15 @@ llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 
 | 文档 | 说明 |
 |---|---|
-| [docs/01-需求文档.md](docs/01-需求文档.md) | 需求基线（后续开发主依据） |
-| [docs/02-架构设计文档.md](docs/02-架构设计文档.md) | 架构、采集、数据模型、API、部署 |
-| [docs/03-UI与交互设计文档.md](docs/03-UI与交互设计文档.md) | 视觉规范、页面布局、组件、交互 |
+| [README.md](README.md) | 中文主文档 |
+| [docs/README.en.md](docs/README.en.md) | 英文主文档 |
+| [docs/README.ru.md](docs/README.ru.md) | 俄文主文档 |
+| 需求基线 | [01-需求文档](docs/01-需求文档.md) | 需求基线（后续开发主依据） |
+|  | [EN](docs/01-需求文档.en.md) · [RU](docs/01-需求文档.ru.md) | 需求基线翻译 |
+| 架构设计 | [02-架构设计文档](docs/02-架构设计文档.md) | 架构、采集、数据模型、API、部署 |
+|  | [EN](docs/02-架构设计文档.en.md) · [RU](docs/02-架构设计文档.ru.md) | 架构设计翻译 |
+| UI 与交互 | [03-UI与交互设计文档](docs/03-UI与交互设计文档.md) | 视觉规范、页面布局、组件、交互 |
+|  | [EN](docs/03-UI与交互设计文档.en.md) · [RU](docs/03-UI与交互设计文档.ru.md) | UI 交互设计翻译 |
 
 ## 技术栈
 
@@ -116,6 +125,7 @@ cp config/hosts.example.yaml config/hosts.yaml
 | `id` | 是 | 唯一标识，用于 URL `/host/<id>` |
 | `name` | 是 | 显示名称 |
 | `llama.host` / `llama.port` | 是 | llama-server 地址（支持 IPv6 字面量） |
+| `llama.path` | 否 | llama-server URL 前缀（反向代理场景），默认空 = `http://host:port/v1/models` |
 | `llama.interval` | 否 | /health + /slots 轮询间隔（秒），默认 1.0 |
 | `llama.slow_interval` | 否 | /props + /v1/models 轮询间隔（秒），默认 30.0 |
 | `llama.timeout` | 否 | 单次请求超时（秒），默认 3.0 |
@@ -141,6 +151,7 @@ hosts:
   - id: ai
     name: AI 主机 (ai.lan)
     llama: { host: ai.lan, port: 8080 }
+    # path: v1/llama        # 可选 URL 前缀
     ssh:
       host: ai.lan
       user: root
@@ -363,7 +374,7 @@ docker ps                            # 查看 (healthy) 状态
 
 #### 4.1 门户页（/）
 
-- 顶部品牌栏：llama灵境 标识、主机总数 / 在线数
+- 顶部品牌栏：llama灵境 标识、主机总数 / 在线数、语言切换 (EN/РУ)、主题切换
 - 主机卡片墙：每卡展示状态点（在线绿脉冲 / 离线红 / SSH 断开黄）、模型名 + 参数量、
   Token 生成速度（大数字 + 60s sparkline）、每 GPU 一条利用率条、CPU / 内存使用
 - 超阈值：红边框 + 红色角标
@@ -375,7 +386,7 @@ docker ps                            # 查看 (healthy) 状态
 
 | 分区 | 内容 |
 |---|---|
-| TopBar | 主机名、状态徽章（llama 离线 / SSH 断开）、刷新控制、主题切换 |
+| TopBar | 主机名、状态徽章（llama 离线 / SSH 断开）、刷新控制、语言切换、主题切换 |
 | 实时总览 | 4 卡：Token 生成速度 / Prompt 处理速度 / 上下文占用（大数字 = 原始 token 数，百分比在右上角）/ MTP 接受率仪表 |
 | GPU 区 | 每卡一个面板：利用率仪表、显存 used/free/total、温度、功耗、风扇、频率、PCIe、P-state、驱动、占用该卡的进程 |
 | 实时生成任务 | 左：状态卡（prompt 处理（带进度）/ 生成中（带已解码数与速度）/ 空闲，任务 ID、剩余 token、已运行时长等）；右：事件流 |
@@ -398,13 +409,17 @@ TopBar 下拉：**实时 (WS) / 1s / 2s / 5s / 暂停**
 右上角下拉，9 套主题：Aurora 极光（默认）/ Terminal 终端 / Light 浅色 / Monokai / Nord /
 Dracula / Synthwave '84 / Tokyo Night / Matrix。选择保存在浏览器（localStorage），即时生效。
 
-#### 4.5 阈值飘红
+#### 4.5 语言切换
+
+右上角下拉，**EN / РУ**。整个界面（标题、标签、提示、事件流）即时切换。选择保存在 localStorage；首次访问时根据浏览器语言自动检测（俄语浏览器自动切换到 РУ，其他为 EN）。技术术语（WS、HTTP、SSH、PID、GPU、MTP、tok/s 等）和主题名称在两种语言中均保持原样。
+
+#### 4.6 阈值飘红
 
 - 两级色阶：黄（warn）/ 红（danger），后端评估、前端按级别渲染
 - 效果：数字变色 + 卡片边框发光 + 脉冲动画（danger）；门户卡片红色角标
 - 纯视觉提示，不做通知推送
 
-#### 4.6 降级与空态
+#### 4.7 降级与空态
 
 | 状态 | 展示 |
 |---|---|
@@ -491,6 +506,9 @@ llamalens
 # 自定义（进程名/端口/unit 与 hosts.yaml 保持一致）
 # --process 接受完整二进制名（无 15 字符截断限制，comm 匹配失败时回退 cmdline 匹配）
 llamalens --llama-port 8081 --process llama-server --unit llama-server
+
+# llama-server 位于反向代理路径下
+llamalens --llama-path v1/llama        # → http://127.0.0.1:8080/v1/llama/slots, /v1/models, ...
 
 # 日志走文件而非 journal
 llamalens --log file --log-path /var/log/llama.log

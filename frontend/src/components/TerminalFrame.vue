@@ -39,6 +39,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { themeState } from '../theme'
 import { totalSpeed } from '../speed'
+import { t } from '../i18n'
 
 const route = useRoute()
 const term = computed(() => themeState.id === 'terminal')

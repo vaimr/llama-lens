@@ -17,6 +17,8 @@ hosts:
     llama:
       host: ai.lan            # llama-server 地址（支持 IPv6 字面量）
       port: 8080
+      # path: v1/llama              # 可选：llama-server 反向代理后的 URL 前缀，
+                                    # 最终 URL = http://<host>:<port>/<path>/v1/models 等；留空则保持 http://<host>:<port>/v1/models
       interval: 1.0           # /health + /slots 轮询间隔（秒）
       slow_interval: 30.0     # /props + /v1/models 轮询间隔（秒）
       timeout: 3.0

@@ -13,7 +13,7 @@
       @update:mode="setMode"
     />
 
-    <div v-if="!llamaOnline && !sshOk" class="banner-danger">主机不可达（llama 离线 + SSH 断开）</div>
+    <div v-if="!llamaOnline && !sshOk" class="banner-danger">{{ t('hostDetail.unreachable') }}</div>
 
     <main class="content">
       <!-- 首次加载骨架 -->
@@ -26,10 +26,10 @@
       <template v-else>
         <!-- ============ 实时总览区 ============ -->
         <section>
-          <div class="section-title">实时总览</div>
+          <div class="section-title">{{ t('hostDetail.overview') }}</div>
           <div class="gauge-row">
             <BarCard
-              title="Token 生成速度"
+              :title="t('hostDetail.gen_speed')"
               :value="llamaOnline ? snap.llama.gen_speed_tps : null"
               unit="tok/s"
               :spark="sparkGen"
@@ -37,7 +37,7 @@
               :foot="genFoot"
             />
             <BarCard
-              title="预填充速度"
+              :title="t('hostDetail.prompt_speed')"
               :value="promptVal"
               unit="tok/s"
               :progress="prefillProgress"
@@ -46,7 +46,7 @@
               :foot="promptFoot"
             />
             <BarCard
-              title="上下文占用"
+              :title="t('hostDetail.context_usage')"
               :value="ctxUsedVal"
               :level="ctxLevel"
               :bar-max="ctxTotal"
@@ -57,7 +57,7 @@
               :fmt-compact="fmtTokens"
             />
             <GaugeCard
-              title="MTP 接受率"
+              :title="t('hostDetail.mtp_acceptance')"
               :value="mtpPct"
               unit="%"
               :level="mtpLevel"
@@ -71,16 +71,16 @@
 
         <!-- ============ GPU 区 ============ -->
         <section>
-          <div class="section-title">GPU（按卡聚合）</div>
+          <div class="section-title">{{ t('hostDetail.gpu') }}</div>
           <div v-if="sshOk" class="gpu-grid" :class="{ single: gpus.length <= 1 }">
             <GpuPanel v-for="g in gpus" :key="g.index" :gpu="g" :alerts="alerts" />
           </div>
-          <div v-else class="glass placeholder"><span class="icon">▣</span>数据不可用（SSH 断开）</div>
+          <div v-else class="glass placeholder"><span class="icon">▣</span>{{ t('hostDetail.no_data_ssh') }}</div>
         </section>
 
         <!-- ============ 实时生成任务区 ============ -->
         <section>
-          <div class="section-title">实时生成任务</div>
+          <div class="section-title">{{ t('hostDetail.live_tasks') }}</div>
           <div class="task-row">
             <LlamaStateCard :log="snap.llama.log" :online="llamaOnline" :slots="slots" :flags="flags" :now="snap.ts" />
             <EventFeed :events="events" fill />
@@ -89,7 +89,7 @@
 
         <!-- ============ 系统区 ============ -->
         <section>
-          <div class="section-title">系统资源</div>
+          <div class="section-title">{{ t('hostDetail.system_resources') }}</div>
           <template v-if="sshOk">
             <div class="sys-grid">
               <CpuPanel :cpu="cpu" :alerts="alerts" />
@@ -100,12 +100,12 @@
               <NetPanel :net="net" />
             </div>
           </template>
-          <div v-else class="glass placeholder"><span class="icon">▣</span>数据不可用（SSH 断开）</div>
+          <div v-else class="glass placeholder"><span class="icon">▣</span>{{ t('hostDetail.no_data_ssh') }}</div>
         </section>
 
         <!-- ============ 模型与 Slot 区 ============ -->
         <section>
-          <div class="section-title">模型与 Slot</div>
+          <div class="section-title">{{ t('hostDetail.model_and_slots') }}</div>
           <div class="model-grid">
             <ModelInfoCard :model="model" />
             <SlotTable :slots="slots" />
@@ -114,7 +114,7 @@
 
         <!-- ============ 进程区 ============ -->
         <section>
-          <div class="section-title">进程</div>
+          <div class="section-title">{{ t('hostDetail.processes') }}</div>
           <template v-if="sshOk">
             <div class="proc-grid">
               <LlamaProcessCard :process="process" :service="service" />
@@ -124,39 +124,39 @@
               </div>
             </div>
           </template>
-          <div v-else class="glass placeholder"><span class="icon">▣</span>数据不可用（SSH 断开）</div>
+          <div v-else class="glass placeholder"><span class="icon">▣</span>{{ t('hostDetail.no_data_ssh') }}</div>
         </section>
 
         <!-- ============ 趋势区 ============ -->
         <section>
           <div class="section-title trend-title-row">
-            历史趋势
+            {{ t('hostDetail.trends') }}
             <span class="win-switch mono">
               <button v-for="w in windows" :key="w.s" :class="{ on: winS === w.s }" @click="winS = w.s">{{ w.label }}</button>
             </span>
           </div>
           <div class="trend-grid">
             <div class="trend-group">llama</div>
-            <TrendChart title="Token 生成速度" unit="tok/s" :series="chartGen" :height="170" />
-            <TrendChart title="预填充速度" unit="tok/s" :series="chartPrompt" :height="170" />
-            <TrendChart title="上下文占用" unit="tokens" :series="chartCtx" :height="170" />
-            <TrendChart title="MTP 接受率" unit="%" :series="chartMtp" :height="170" :y-max="100" :y-min="0" />
+            <TrendChart :title="t('hostDetail.gen_speed')" unit="tok/s" :series="chartGen" :height="170" />
+            <TrendChart :title="t('hostDetail.prompt_speed')" unit="tok/s" :series="chartPrompt" :height="170" />
+            <TrendChart :title="t('hostDetail.context_usage')" unit="tokens" :series="chartCtx" :height="170" />
+            <TrendChart :title="t('hostDetail.mtp_acceptance')" unit="%" :series="chartMtp" :height="170" :y-max="100" :y-min="0" />
             <div class="trend-group">GPU</div>
-            <TrendChart title="GPU 利用率" unit="%" :series="chartGpuUtil" :height="170" :y-max="100" />
-            <TrendChart title="GPU 显存" unit="MB" :series="chartGpuMem" :height="170" />
-            <TrendChart title="GPU 温度" unit="°C" :series="chartGpuTemp" :height="170" />
-            <TrendChart title="GPU 功耗" unit="W" :series="chartGpuPower" :height="170" />
-            <div class="trend-group">系统</div>
-            <TrendChart title="CPU" unit="%" :series="chartCpu" :height="170" :y-max="100" />
-            <TrendChart title="内存" unit="MB" :series="chartMem" :height="170" />
-            <TrendChart title="网络" unit="MB/s" :series="chartNet" :height="170" />
-            <TrendChart title="负载均值" unit="load" :series="chartLoad" :height="170" />
+            <TrendChart :title="t('hostDetail.gpu_util')" unit="%" :series="chartGpuUtil" :height="170" :y-max="100" />
+            <TrendChart :title="t('hostDetail.gpu_mem')" unit="MB" :series="chartGpuMem" :height="170" />
+            <TrendChart :title="t('hostDetail.gpu_temp')" unit="°C" :series="chartGpuTemp" :height="170" />
+            <TrendChart :title="t('hostDetail.gpu_power')" unit="W" :series="chartGpuPower" :height="170" />
+            <div class="trend-group">{{ t('hostDetail.system_label') }}</div>
+            <TrendChart :title="t('hostDetail.cpu')" unit="%" :series="chartCpu" :height="170" :y-max="100" />
+            <TrendChart :title="t('hostDetail.memory')" unit="MB" :series="chartMem" :height="170" />
+            <TrendChart :title="t('hostDetail.network')" unit="MB/s" :series="chartNet" :height="170" />
+            <TrendChart :title="t('hostDetail.load_avg')" unit="load" :series="chartLoad" :height="170" />
           </div>
         </section>
       </template>
     </main>
 
-    <div v-if="mode === 'paused'" class="paused-watermark"><span>已暂停</span></div>
+    <div v-if="mode === 'paused'" class="paused-watermark"><span>{{ t('hostDetail.paused') }}</span></div>
   </div>
 </template>
 
@@ -182,6 +182,7 @@ import ModelInfoCard from '../components/ModelInfoCard.vue'
 import SlotTable from '../components/SlotTable.vue'
 import TrendChart from '../components/TrendChart.vue'
 import EventFeed from '../components/EventFeed.vue'
+import { t } from '../i18n'
 
 const props = defineProps({ id: { type: String, required: true } })
 
@@ -207,7 +208,7 @@ const model = computed(() => llama.value.model || {})
 const modelName = computed(() => (model.value.name || model.value.path || '').split('/').pop())
 const modelTitle = computed(() => model.value.name || model.value.path || '')
 const offlineNote = computed(() =>
-  snap.value && !llamaOnline.value ? `数据截至 ${fmtClock(snap.value.ts)}` : ''
+  snap.value && !llamaOnline.value ? `${t('hostDetail.no_data_ssh')} ${fmtClock(snap.value.ts)}` : ''
 )
 
 // ---------------- AI 核心 ----------------
@@ -222,14 +223,14 @@ const ctxUsedVal = computed(() => {
 const ctxLevel = computed(() => alertLevel(alerts.value, 'ctx'))
 const ctxBarSub = computed(() => {
   const c = ctx.value
-  if (c.used === null || c.used === undefined) return '等待任务结束'
+  if (c.used === null || c.used === undefined) return t('hostDetail.wait_task_end')
   if (c.pct === null || c.pct === undefined) return ''
   const parts = [`${c.pct.toFixed(1)}%`]
-  if (c.remaining !== null && c.remaining !== undefined) parts.push(`剩 ${fmtTokens(c.remaining)}`)
+  if (c.remaining !== null && c.remaining !== undefined) parts.push(`${t('hostDetail.remaining_short')} ${fmtTokens(c.remaining)}`)
   return parts.join(' · ')
 })
 const fmtCtxNum = (v) => fmtNum(v, 0)
-const ctxBadge = computed(() => (ctx.value.truncated ? '已截断' : ''))
+const ctxBadge = computed(() => (ctx.value.truncated ? t('hostDetail.truncated') : ''))
 // 原始值依赖：避免 chartCtx 随每秒 WS 快照（ctx 新对象）重算
 const ctxTotal = computed(() => {
   const t = ctx.value.total
@@ -242,12 +243,12 @@ const mtpPct = computed(() => {
 })
 const mtpLevel = computed(() => alertLevel(alerts.value, 'mtp'))
 const speedSub = computed(() => {
-  const src = snap.value && snap.value.llama.speed_source ? `来源 ${snap.value.llama.speed_source}` : ''
+  const src = snap.value && snap.value.llama.speed_source ? `${t('hostDetail.source')} ${snap.value.llama.speed_source}` : ''
   return [src, offlineNote.value].filter(Boolean).join(' · ')
 })
 const genFoot = computed(() => {
   const st = llama.value.log && llama.value.log.state
-  if (st && st.tg_tps !== null && st.tg_tps !== undefined) return `任务均速 ${st.tg_tps.toFixed(1)}`
+  if (st && st.tg_tps !== null && st.tg_tps !== undefined) return `${t('hostDetail.task_avg_speed')} ${st.tg_tps.toFixed(1)}`
   return ''
 })
 // 预填充速度：预填充中显示实时速度，停止后归 0（最近一次预填充信息保留在 sub/foot）
@@ -268,7 +269,7 @@ const promptSub = computed(() => {
   const st = llama.value.log && llama.value.log.state
   if (llamaOnline.value && st && st.phase === 'prompt_processing') return speedSub.value
   const lp = lastPrefill.value
-  if (lp && lp.ts) return `上次 ${fmtClock(lp.ts)}`
+  if (lp && lp.ts) return `${t('hostDetail.last')} ${fmtClock(lp.ts)}`
   return speedSub.value
 })
 const prefillEta = computed(() => {
@@ -291,16 +292,16 @@ const promptFoot = computed(() => {
   if (st && st.phase === 'prompt_processing') {
     const parts = []
     if (st.prompt_progress !== null && st.prompt_progress !== undefined) {
-      parts.push(`进度 ${(st.prompt_progress * 100).toFixed(0)}%`)
+      parts.push(`${t('hostDetail.progress')} ${(st.prompt_progress * 100).toFixed(0)}%`)
     }
-    if (prefillEta.value !== null) parts.push(`预计剩余 ${fmtDuration(prefillEta.value)}`)
+    if (prefillEta.value !== null) parts.push(`${t('hostDetail.eta_remaining')} ${fmtDuration(prefillEta.value)}`)
     return parts.join(' · ')
   }
   const lp = lastPrefill.value
   if (lp) {
     const parts = []
     if (lp.n_tokens) parts.push(`${fmtTokens(lp.n_tokens)} tokens`)
-    if (lp.progress !== null && lp.progress !== undefined) parts.push(`进度 ${(lp.progress * 100).toFixed(0)}%`)
+    if (lp.progress !== null && lp.progress !== undefined) parts.push(`${t('hostDetail.progress')} ${(lp.progress * 100).toFixed(0)}%`)
     return parts.join(' · ')
   }
   return ''
@@ -461,18 +462,18 @@ const chartCpu = computed(() => {
 })
 const chartMem = computed(() => {
   const out = []
-  const u = seriesOf('mem_used', { name: '已用', color: chartTheme().cyan, area: true, stack: 'mem' })
-  const c = seriesOf('mem_buff_cache', { name: 'buff/cache', color: chartTheme().green, area: true, stack: 'mem' })
+  const u = seriesOf('mem_used', { name: t('hostDetail.used'), color: chartTheme().cyan, area: true, stack: 'mem' })
+  const c = seriesOf('mem_buff_cache', { name: t('hostDetail.buff_cache'), color: chartTheme().green, area: true, stack: 'mem' })
   if (u) out.push(u)
   if (c) out.push(c)
   return out
 })
 const chartNet = computed(() => {
   const out = []
-  const r = seriesOf('net_rx', { name: '下行', color: chartTheme().cyan })
-  const t = seriesOf('net_tx', { name: '上行', color: chartTheme().green })
+  const r = seriesOf('net_rx', { name: t('hostDetail.downlink'), color: chartTheme().cyan })
+  const t$ = seriesOf('net_tx', { name: t('hostDetail.uplink'), color: chartTheme().green })
   if (r) out.push(r)
-  if (t) out.push(t)
+  if (t$) out.push(t$)
   return out
 })
 const chartLoad = computed(() => {
@@ -501,7 +502,7 @@ const chartCtx = computed(() => {
   return [s]
 })
 const chartMtp = computed(() => {
-  const s = seriesOf('mtp_acceptance', { name: '接受率', color: chartTheme().green, step: true })
+  const s = seriesOf('mtp_acceptance', { name: t('hostDetail.mtp_acceptance'), color: chartTheme().green, step: true })
   if (!s) return []
   s.values = s.values.map((v) => (v === null ? null : v * 100))
   return [s]

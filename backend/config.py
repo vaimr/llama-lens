@@ -84,6 +84,7 @@ def merge_thresholds(global_t: Optional[dict], host_t: Optional[dict]) -> Dict[s
 class LlamaCfg:
     host: str
     port: int = 8080
+    path: str = ""                # 可选 URL 前缀（如 "v1/llama"），留空则无前缀
     interval: float = 1.0        # /health + /slots 轮询间隔（秒）
     slow_interval: float = 30.0  # /props + /v1/models 轮询间隔（秒）
     timeout: float = 3.0         # 单次请求超时
@@ -142,11 +143,25 @@ class AppConfig:
 # 解析
 # ---------------------------------------------------------------------------
 
+def _norm_path(p) -> str:
+    """Normalize an optional URL path segment.
+
+    Accepts None, empty string, whitespace-only → "".
+    Otherwise strips leading/trailing whitespace then leading/trailing '/'
+    characters (e.g. "/v1/llama/" → "v1/llama").
+    """
+    if p is None:
+        return ""
+    s = str(p).strip()
+    return s.strip("/")
+
+
 def _build_llama(d: dict) -> LlamaCfg:
     d = d or {}
     return LlamaCfg(
         host=d.get("host", ""),
         port=int(d.get("port", 8080)),
+        path=_norm_path(d.get("path")),
         interval=float(d.get("interval", 1.0)),
         slow_interval=float(d.get("slow_interval", 30.0)),
         timeout=float(d.get("timeout", 3.0)),

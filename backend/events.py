@@ -34,27 +34,28 @@ class EventDetector:
         self._alert_levels: Dict[str, tuple] = {}
 
     # ------------------------------------------------------------------
-    def emit(self, ts: Optional[float], level: str, type_: str, msg: str) -> None:
+    def emit(self, ts: Optional[float], level: str, type_: str, msg: str, data: Optional[Dict[str, Any]] = None) -> None:
         self.events.append({
             "ts": ts if ts is not None else time.time(),
             "level": level,
             "type": type_,
             "msg": msg,
+            "data": data or {},
         })
 
     def set_llama_online(self, ts: float, online: bool, model_name: str = "") -> None:
         if self._llama_online is None:
             self._llama_online = online
             if online:
-                self.emit(ts, "info", "llama_up", "llama 上线" + (" · 模型 %s" % model_name if model_name else ""))
+                self.emit(ts, "info", "llama_up", "llama 上线" + (" · 模型 %s" % model_name if model_name else ""), data={"model": model_name, "recovered": False})
             return
         if online != self._llama_online:
             self._llama_online = online
             if online:
-                self.emit(ts, "info", "llama_up", "llama 恢复在线" + (" · 模型 %s" % model_name if model_name else ""))
+                self.emit(ts, "info", "llama_up", "llama 恢复在线" + (" · 模型 %s" % model_name if model_name else ""), data={"model": model_name, "recovered": True})
             else:
                 self.reset_task_state()
-                self.emit(ts, "error", "llama_down", "llama 离线")
+                self.emit(ts, "error", "llama_down", "llama 离线", data={})
 
     def set_ssh_connected(self, ts: float, connected: bool) -> None:
         if self._ssh_connected is None:
@@ -63,9 +64,9 @@ class EventDetector:
         if connected != self._ssh_connected:
             self._ssh_connected = connected
             if connected:
-                self.emit(ts, "info", "ssh_up", "SSH 重连成功")
+                self.emit(ts, "info", "ssh_up", "SSH 重连成功", data={})
             else:
-                self.emit(ts, "warn", "ssh_down", "SSH 断开")
+                self.emit(ts, "warn", "ssh_down", "SSH 断开", data={})
 
     def reset_task_state(self) -> None:
         """重置任务相关状态。llama 重启后任务 ID 从 0 重新计数，
@@ -83,7 +84,7 @@ class EventDetector:
             msg = "任务 #%s 开始" % task_id if task_id is not None else "任务开始"
             if prompt_tokens is not None:
                 msg += " (prompt %d tokens)" % prompt_tokens
-            self.emit(ts, "info", "task_start", msg)
+            self.emit(ts, "info", "task_start", msg, data={"task_id": task_id, "prompt_tokens": prompt_tokens})
         elif (running and self._task_running and task_id is not None
               and task_id != self._running_task_id):
             # 旧任务的结束事件还在宽限期内，新任务已开始：先落盘旧结束事件再开始
@@ -93,12 +94,12 @@ class EventDetector:
             msg = "任务 #%s 开始" % task_id
             if prompt_tokens is not None:
                 msg += " (prompt %d tokens)" % prompt_tokens
-            self.emit(ts, "info", "task_start", msg)
+            self.emit(ts, "info", "task_start", msg, data={"task_id": task_id, "prompt_tokens": prompt_tokens})
         elif not running and self._task_running:
             self._task_running = False
             self._running_task_id = None
             self._cancel_pending_task_end()
-            self.emit(ts, "info", "task_end", "任务 #%s 结束" % task_id if task_id is not None else "任务结束")
+            self.emit(ts, "info", "task_end", "任务 #%s 结束" % task_id if task_id is not None else "任务结束", data={"task_id": task_id})
 
     def task_end_with_stats(self, ts: float, task_id: Optional[int], total_tokens: Optional[int],
                             duration_s: Optional[float], avg_tps: Optional[float],
@@ -157,7 +158,7 @@ class EventDetector:
         msg = " ".join(parts)
         if stats:
             msg += ": " + " · ".join(stats)
-        self.emit(ts, "info", "task_end", msg)
+        self.emit(ts, "info", "task_end", msg, data={"task_id": task_id, "total_tokens": total_tokens, "duration_s": duration_s, "avg_tps": avg_tps, "mtp_acceptance": mtp_acceptance, "ctx_used": ctx_used, "note": note})
 
     def _fire_pending_task_end(self) -> None:
         args = self._pending_task_end
@@ -184,10 +185,10 @@ class EventDetector:
         if model_path != self._model_path:
             old = self._model_path
             self._model_path = model_path
-            self.emit(ts, "warn", "model_change", "模型变更: %s → %s" % (_short(old), _short(model_path)))
+            self.emit(ts, "warn", "model_change", "模型变更: %s → %s" % (_short(old), _short(model_path)), data={"old": old, "new": new})
 
     def llama_boot(self, ts: float, info: str) -> None:
-        self.emit(ts, "info", "llama_boot", "llama 启动: " + info)
+        self.emit(ts, "info", "llama_boot", "llama 启动: " + info, data={"info": info})
 
     # ------------------------------------------------------------------
     # 阈值穿越事件：按 metric 跟踪级别变化（normal/warn/danger）
@@ -235,7 +236,7 @@ class EventDetector:
             msg = "%s %s %s %s（%s）" % (
                 self._alert_name(metric), _fmt_alert_val(metric, a.get("value")),
                 op, _fmt_alert_val(metric, a.get("threshold")), tag)
-            self.emit(now, level, "alert", msg)
+            self.emit(now, level, "alert", msg, data={"metric": metric, "value": a.get("value"), "op": op, "threshold": a.get("threshold"), "level": level, "recovered": False})
             self._alert_levels[metric] = (level, now)
         for metric, (level, last_emit) in list(self._alert_levels.items()):
             if level == "normal" or metric in current:
@@ -248,7 +249,7 @@ class EventDetector:
             if now - last_emit < self.ALERT_COOLDOWN_S:
                 self._alert_levels[metric] = (level, last_emit)
                 continue
-            self.emit(now, "info", "alert", "%s 恢复正常" % self._alert_name(metric))
+            self.emit(now, "info", "alert", "%s 恢复正常" % self._alert_name(metric), data={"metric": metric, "value": None, "op": None, "threshold": None, "level": "info", "recovered": True})
             self._alert_levels[metric] = ("normal", now)
 
     # ------------------------------------------------------------------

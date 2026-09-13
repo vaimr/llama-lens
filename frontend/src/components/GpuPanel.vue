@@ -25,36 +25,36 @@
         </svg>
         <div class="gauge-center">
           <span class="mono val" :class="levelClass">{{ utilText }}</span>
-          <span class="unit">利用率</span>
+          <span class="unit">{{ t('gpuPanel.utilization') }}</span>
         </div>
       </div>
 
       <div class="gpu-metrics">
         <div class="mem-block">
           <div class="mem-label mono small dim">
-            显存 {{ fmtNum(gpu.mem_used_mb, 0) }} / {{ fmtNum(gpu.mem_total_mb, 0) }} MB
+            {{ t('gpuPanel.vram') }} {{ fmtNum(gpu.mem_used_mb, 0) }} / {{ fmtNum(gpu.mem_total_mb, 0) }} MB
             <span :class="memLevelClass">{{ memPctText }}</span>
           </div>
           <div class="bar"><i :class="memBarClass" :style="{ width: memPctNum + '%' }"></i></div>
         </div>
 
         <div class="grid3">
-          <div class="kv"><span class="k">温度</span><span class="v mono" :class="tempLevelClass">{{ tempText }}°C</span></div>
-          <div class="kv"><span class="k">显存温度</span><span class="v mono">{{ tempMemText }}<template v-if="tempMemText !== '—'">°C</template></span></div>
-          <div class="kv"><span class="k">功耗</span><span class="v mono">{{ powerText }} W</span></div>
-          <div class="kv"><span class="k">显存利用率</span><span class="v mono">{{ memUtilText }}</span></div>
-          <div class="kv"><span class="k">风扇</span><span class="v mono">{{ fanText }}</span></div>
-          <div class="kv"><span class="k">频率</span><span class="v mono">{{ clockText }}</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.temperature') }}</span><span class="v mono" :class="tempLevelClass">{{ tempText }}°C</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.vram_temp') }}</span><span class="v mono">{{ tempMemText }}<template v-if="tempMemText !== '—'">°C</template></span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.power') }}</span><span class="v mono">{{ powerText }} W</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.vram_util') }}</span><span class="v mono">{{ memUtilText }}</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.fan') }}</span><span class="v mono">{{ fanText }}</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.clock') }}</span><span class="v mono">{{ clockText }}</span></div>
           <div class="kv"><span class="k">PCIe</span><span class="v mono">gen{{ gpu.pcie_gen ?? '—' }} x{{ gpu.pcie_width ?? '—' }}</span></div>
           <div class="kv"><span class="k">P-State</span><span class="v mono">{{ gpu.pstate || '—' }}</span></div>
-          <div class="kv"><span class="k">降频状态</span><span class="v mono" :class="throttleClass">{{ throttleText }}</span></div>
-          <div class="kv"><span class="k">ECC 纠错/不可纠</span><span class="v mono" :class="eccClass">{{ eccText }}</span></div>
-          <div class="kv"><span class="k">CUDA 版本</span><span class="v mono">{{ cudaText }}</span></div>
-          <div class="kv"><span class="k">驱动版本</span><span class="v mono">{{ driverText }}</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.throttle') }}</span><span class="v mono" :class="throttleClass">{{ throttleText }}</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.ecc') }}</span><span class="v mono" :class="eccClass">{{ eccText }}</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.cuda_version') }}</span><span class="v mono">{{ cudaText }}</span></div>
+          <div class="kv"><span class="k">{{ t('gpuPanel.driver_version') }}</span><span class="v mono">{{ driverText }}</span></div>
         </div>
 
         <div v-if="apps.length" class="apps">
-          <div class="apps-title small dim">占用进程</div>
+          <div class="apps-title small dim">{{ t('gpuPanel.occupied_processes') }}</div>
           <div v-for="a in apps" :key="a.pid" class="kv small mono">
             <span class="k">{{ a.name }}</span>
             <span class="v">pid {{ a.pid }} · {{ fmtNum(a.mem_mb, 0) }} MB</span>
@@ -68,6 +68,7 @@
 <script setup>
 import { computed } from 'vue'
 import { fmtNum, alertOf } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   gpu: { type: Object, required: true },
@@ -144,10 +145,10 @@ const eccClass = computed(() => ((props.gpu.ecc_uncorrected || 0) > 0 ? 'lv-dang
 
 // clocks_throttle_reasons.active 位掩码 → 中文短名（常见位）
 const THROTTLE_BITS = [
-  [0x1, '硬件降频'], [0x2, '热降频'], [0x4, '功耗墙'], [0x8, '热降频'],
-  [0x10, '热降频'], [0x20, '功率刹车'], [0x40, '热降频'], [0x80, 'SW Fast Switch'],
-  [0x100, '热功率刹车'], [0x200, 'SW FLIP'], [0x400, 'HW FLIP'], [0x800, '热功率刹车'],
-  [0x1000, '功率刹车']
+  [0x1, t('gpuPanel.hw_throttle')], [0x2, t('gpuPanel.thermal_throttle')], [0x4, t('gpuPanel.power_cap')], [0x8, t('gpuPanel.thermal_throttle')],
+  [0x10, t('gpuPanel.thermal_throttle')], [0x20, t('gpuPanel.power_brake')], [0x40, t('gpuPanel.thermal_throttle')], [0x80, 'SW Fast Switch'],
+  [0x100, t('gpuPanel.thermal_power_brake')], [0x200, 'SW FLIP'], [0x400, 'HW FLIP'], [0x800, t('gpuPanel.thermal_power_brake')],
+  [0x1000, t('gpuPanel.power_brake')]
 ]
 const throttleNames = computed(() => {
   const t = props.gpu.throttle
@@ -160,7 +161,7 @@ const throttleNames = computed(() => {
 const throttleText = computed(() => {
   const names = throttleNames.value
   if (names === null) return '—'
-  if (!names.length) return '正常'
+  if (!names.length) return t('gpuPanel.normal')
   return [...new Set(names)].join('、')
 })
 const throttleClass = computed(() => {

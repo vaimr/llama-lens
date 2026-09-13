@@ -2,7 +2,7 @@
   <div class="panel glass" :class="levelClass">
     <div class="panel-head">
       <span class="panel-title">CPU</span>
-      <span class="mono dim small">{{ cpu.model || '—' }} · {{ cpu.cores || '—' }} 核</span>
+      <span class="mono dim small">{{ cpu.model || '—' }} · {{ cpu.cores || '—' }} {{ t('cpuPanel.cores') }}</span>
     </div>
 
     <div class="usage-row">
@@ -16,14 +16,15 @@
     </div>
 
     <div class="kv-row">
-      <div class="kv"><span class="k">Load 1/5/15</span><span class="v mono">{{ loadText }}</span></div>
-      <div class="kv"><span class="k">主频</span><span class="v mono">{{ mhzText }}</span></div>
+      <div class="kv"><span class="k">{{ t('cpuPanel.load') }}</span><span class="v mono">{{ loadText }}</span></div>
+      <div class="kv"><span class="k">{{ t('cpuPanel.clock_speed') }}</span><span class="v mono">{{ mhzText }}</span></div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { t } from '../i18n'
 
 const props = defineProps({
   cpu: { type: Object, default: () => ({}) },

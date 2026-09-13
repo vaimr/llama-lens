@@ -23,6 +23,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { gaugeOption, initChart } from '../theme/echarts-dark'
 import { chartTheme, themeState } from '../theme'
 import { sparkPath, useCountUp } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -76,7 +77,7 @@ const statsText = computed(() => {
   const max = Math.max(...vals)
   const min = Math.min(...vals)
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length
-  return `60s 峰 ${max.toFixed(0)}${props.unit} · 谷 ${min.toFixed(0)}${props.unit} · 均 ${avg.toFixed(0)}${props.unit}`
+  return `${t('barCard.60s_stats')} ${max.toFixed(0)}${props.unit} · ${t('barCard.peak')} ${min.toFixed(0)}${props.unit} · ${t('barCard.avg')} ${avg.toFixed(0)}${props.unit}`
 })
 const footText = computed(() => props.foot || statsText.value)
 

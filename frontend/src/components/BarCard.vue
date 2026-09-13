@@ -26,6 +26,7 @@
 import { computed } from 'vue'
 import { sparkPath, useCountUp, fmtNum, niceMax } from '../utils'
 import { chartTheme } from '../theme'
+import { t } from '../i18n'
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -99,7 +100,7 @@ const statsText = computed(() => {
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length
   if (max === 0) return '' // 全零窗口（如解码期 prompt）无统计意义
   const f = props.fmtCompact || ((v) => v.toFixed(0))
-  return `60s 峰 ${f(max)} · 谷 ${f(min)} · 均 ${f(avg)}`
+  return `${t('barCard.60s_stats')} ${f(max)} · ${t('barCard.peak')} ${f(min)} · ${t('barCard.avg')} ${f(avg)}`
 })
 const footText = computed(() => {
   const prefix = props.foot ? props.foot + ' · ' : ''

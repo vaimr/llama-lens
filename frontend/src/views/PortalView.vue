@@ -7,8 +7,8 @@
       </template>
       <div v-else class="glass placeholder" style="grid-column: 1 / -1; min-height: 300px">
         <span class="icon">◉</span>
-        <span>未注册主机</span>
-        <span class="small">在 config/hosts.yaml 中添加主机后重启面板</span>
+        <span>{{ t('portal.no_hosts') }}</span>
+        <span class="small">{{ t('portal.add_hosts') }}</span>
       </div>
     </main>
   </div>
@@ -18,6 +18,7 @@
 import BrandBar from '../components/BrandBar.vue'
 import HostCard from '../components/HostCard.vue'
 import { usePortalStream } from '../stream'
+import { t } from '../i18n'
 
 const { hosts, connected } = usePortalStream()
 </script>

@@ -1,38 +1,38 @@
 <template>
   <div class="proc glass">
     <div class="panel-head">
-      <span class="panel-title">llama-server 进程</span>
-      <span v-if="!found" class="badge warn">未找到进程</span>
+      <span class="panel-title">{{ t('llamaProcess.title') }}</span>
+      <span v-if="!found" class="badge warn">{{ t('llamaProcess.not_found') }}</span>
     </div>
 
     <template v-if="found">
       <div class="metrics mono">
         <div class="m"><span class="v">{{ pid }}</span><span class="k">PID</span></div>
-        <div class="m"><span class="v" :class="cpuLevelClass">{{ cpuRtText }}</span><span class="k">实时 CPU</span></div>
-        <div class="m"><span class="v">{{ cpuLifeText }}</span><span class="k">累计 CPU</span></div>
+        <div class="m"><span class="v" :class="cpuLevelClass">{{ cpuRtText }}</span><span class="k">{{ t('llamaProcess.realtime_cpu') }}</span></div>
+        <div class="m"><span class="v">{{ cpuLifeText }}</span><span class="k">{{ t('llamaProcess.cumulative_cpu') }}</span></div>
         <div class="m"><span class="v">{{ rssText }}</span><span class="k">RSS</span></div>
         <div class="m"><span class="v">{{ vszText }}</span><span class="k">VSZ</span></div>
-        <div class="m"><span class="v">{{ threads ?? '—' }}</span><span class="k">线程</span></div>
-        <div class="m"><span class="v">{{ elapsed || '—' }}</span><span class="k">运行时长</span></div>
+        <div class="m"><span class="v">{{ threads ?? '—' }}</span><span class="k">{{ t('llamaProcess.threads') }}</span></div>
+        <div class="m"><span class="v">{{ elapsed || '—' }}</span><span class="k">{{ t('llamaProcess.uptime') }}</span></div>
       </div>
 
       <div v-if="service && service.active" class="service mono">
-        <span class="k">服务</span><span class="v">{{ service.unit }} · {{ service.active }}</span>
-        <span class="k">启动于</span><span class="v">{{ service.since || '—' }}</span>
-        <span class="k">CPU 累计</span><span class="v">{{ service.cpu_total || '—' }}</span>
-        <span class="k">内存</span><span class="v">{{ service.memory || '—' }}<span v-if="service.memory_peak" class="faint"> (峰值 {{ service.memory_peak }})</span></span>
+        <span class="k">{{ t('llamaProcess.service') }}</span><span class="v">{{ service.unit }} · {{ service.active }}</span>
+        <span class="k">{{ t('llamaProcess.started_at') }}</span><span class="v">{{ service.since || '—' }}</span>
+        <span class="k">{{ t('llamaProcess.cumulative_cpu') }}</span><span class="v">{{ service.cpu_total || '—' }}</span>
+        <span class="k">{{ t('llamaProcess.memory') }}</span><span class="v">{{ service.memory || '—' }}<span v-if="service.memory_peak" class="faint"> ({{ t('llamaProcess.peak') }} {{ service.memory_peak }})</span></span>
         <span class="k">Tasks</span><span class="v">{{ service.tasks || '—' }}</span>
       </div>
 
       <div class="collapse-head" :class="{ open: cmdOpen }" @click="cmdOpen = !cmdOpen">
-        <span class="arrow">▸</span> 完整命令行
+        <span class="arrow">▸</span> {{ t('llamaProcess.full_command_line') }}
       </div>
       <div class="collapse-body" :class="{ open: cmdOpen }">
         <pre class="cmdline mono">{{ cmdline || '—' }}</pre>
       </div>
 
       <div v-if="flagRows.length" class="collapse-head" :class="{ open: flagOpen }" @click="flagOpen = !flagOpen">
-        <span class="arrow">▸</span> 参数表（{{ flagRows.length }}）
+        <span class="arrow">▸</span> {{ t('llamaProcess.params_table') }}（{{ flagRows.length }}）
       </div>
       <div class="collapse-body" :class="{ open: flagOpen }">
         <div class="flags">
@@ -44,13 +44,14 @@
       </div>
     </template>
 
-    <div v-else class="placeholder"><span class="icon">⌁</span>未找到 llama-server 进程（可能以其他名称运行）</div>
+    <div v-else class="placeholder"><span class="icon">⌁</span>{{ t('llamaProcess.not_found_alt') }}</div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { fmtBytes } from '../utils'
+import { t } from '../i18n'
 
 const props = defineProps({
   process: { type: Object, default: () => ({}) },
