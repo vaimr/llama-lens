@@ -7,6 +7,7 @@
 """
 import asyncio
 import logging
+import json
 import re
 import time
 from typing import Optional, Dict, Any, List
@@ -28,6 +29,8 @@ echo ==GPU==
 nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,utilization.memory,temperature.gpu,power.draw,power.limit,fan.speed,clocks.current.graphics,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current,pstate,temperature.memory,ecc.errors.corrected.volatile.total,ecc.errors.uncorrected.volatile.total,clocks_throttle_reasons.active --format=csv,noheader,nounits
 echo ==APPS==
 nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader,nounits
+echo ==AMDGPU==
+if [ -n "$(command -v amd-smi)" ]; then amd-smi --showallinfo --json; elif [ -n "$(command -v rocm-smi)" ]; then rocm-smi --showallinfo --json; fi
 echo ==STAT==
 cat /proc/stat
 echo ==MEM==
@@ -82,7 +85,7 @@ hostname
 echo ==KERNEL==
 uname -r
 echo ==OS==
-. /etc/os-release && echo "$PRETTY_NAME"
+grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2- | tr -d '"'
 echo ==CPUMODEL==
 grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//'
 echo ==CORES==
@@ -93,7 +96,9 @@ echo ==NVSMI==
 command -v nvidia-smi || echo NOT_FOUND
 echo ==CUDA==
 # CUDA 版本静态（驱动不升级不变）：一次性采集，避免每 2s 渲染整张 nvidia-smi 表
-nvidia-smi | sed -n 3p
+nvidia-smi | grep -m1 'CUDA Version'
+echo ==AMDSMI==
+command -v amd-smi || command -v rocm-smi || echo NOT_FOUND
 echo ==END==
 """
 
@@ -214,6 +219,249 @@ def parse_apps(section: str) -> List[Dict[str, Any]]:
             name = name.rsplit("/", 1)[-1]
         apps.append({"pid": pid, "name": name, "mem_mb": mem})
     return apps
+
+
+def _safe_num(v, default=None):
+    """Convert a value (int/float/str/list) to float, never crash.
+
+    Handles: bare numbers, strings with units ("123.4 MHz"),
+    lists (take first element), "N/A" → default.
+    """
+    if v is None:
+        return default
+    if isinstance(v, (int, float)):
+        return float(v) if not isinstance(v, bool) else default
+    if isinstance(v, list):
+        return _safe_num(v[0], default) if v else default
+    s = str(v).strip()
+    if not s or s.upper() in ("N/A", "NA", "NULL", "NONE", "UNKNOWN", "NOT FOUND"):
+        return default
+    # Strip common unit suffixes: "123.4 MHz" → 123.4, "1.5 GB" → 1.5
+    s = s.split()[0]  # first token only
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_int(v, default=0):
+    """Convert a value to int via float, never crash."""
+    f = _safe_num(v, None)
+    if f is None:
+        return default
+    return int(f)
+
+
+def _pick(d: dict, *keys, default=None):
+    """Try multiple keys in order, return first non-None value."""
+    if not isinstance(d, dict):
+        return default
+    for k in keys:
+        if k in d:
+            return d[k]
+    return default
+
+
+def parse_amd_gpu(section: str) -> List[Dict[str, Any]]:
+    """Parse amd-smi / rocm-smi --showallinfo --json output.
+
+    Tolerant container discovery, never raise.  Mirrors parse_gpu keys
+    so the frontend panel renders identically.
+    """
+    gpus: List[Dict[str, Any]] = []
+    if not section.strip():
+        return gpus
+    try:
+        root = json.loads(section)
+    except (json.JSONDecodeError, TypeError):
+        return gpus
+    if not isinstance(root, dict):
+        return gpus
+
+    # --- Container discovery ---
+    candidates = []
+    for key in ("gpu", "gpus", "GPUTOP"):
+        val = root.get(key)
+        if isinstance(val, list):
+            candidates = val
+            break
+    if not candidates:
+        # Fallback: iterate top-level values, collect lists of dicts
+        for val in root.values():
+            if isinstance(val, list) and val and isinstance(val[0], dict):
+                # Skip version keys
+                sample = val[0]
+                if not any(k in sample for k in ("rocm_smi_version", "amdsmi_version", "version")):
+                    candidates = val
+                    break
+
+    for gpu in candidates:
+        if not isinstance(gpu, dict):
+            continue
+        try:
+            entry = _extract_amd_gpu_entry(gpu)
+            if entry.get("name"):
+                gpus.append(entry)
+        except Exception:
+            continue  # skip unparseable entries
+
+    return gpus
+
+
+def _extract_amd_gpu_entry(gpu: dict) -> Dict[str, Any]:
+    """Extract a single GPU entry from amd-smi/rocm-smi JSON."""
+    # index
+    idx = _safe_int(
+        _pick(gpu, "gpu_id", "index", "card_index", "gpu_index"), 0
+    )
+    # name
+    name = str(
+        _pick(
+            gpu,
+            "asic.market_name",
+            "product_name",
+            "name",
+            "card_series",
+            "drm_device_name",
+            "device_name",
+        )
+        or ""
+    ).strip()
+    if not name:
+        return {"index": idx, "name": ""}  # skip marker
+
+    # driver
+    driver = str(
+        _pick(gpu, "driver_version", "hardware.hwdriverversion", "asic.driver_version")
+        or ""
+    ).strip()
+
+    # --- Memory (bytes → MB, or KB → MB) ---
+    vram = _pick(gpu, "vram_usage")
+    if isinstance(vram, dict):
+        mem_total_mb = _safe_num(vram.get("vram_total"), None) / 1048576.0 if _safe_num(vram.get("vram_total"), None) is not None else None
+        mem_used_mb = _safe_num(vram.get("vram_mem"), None) / 1048576.0 if _safe_num(vram.get("vram_mem"), None) is not None else None
+    else:
+        hw = _pick(gpu, "hardware")
+        if isinstance(hw, dict):
+            mem_total_mb = _safe_num(hw.get("hwmemtotal"), None) / 1024.0 if _safe_num(hw.get("hwmemtotal"), None) is not None else None
+            mem_used_mb = _safe_num(hw.get("hwmemused"), None) / 1024.0 if _safe_num(hw.get("hwmemused"), None) is not None else None
+        else:
+            mem_total_mb = _safe_num(gpu.get("mem_total"), None)
+            mem_used_mb = _safe_num(gpu.get("mem_used"), None)
+
+    if mem_total_mb is None:
+        mem_total_mb = 0.0
+    if mem_used_mb is None:
+        mem_used_mb = 0.0
+    mem_free_mb = mem_total_mb - mem_used_mb
+
+    # util_pct
+    util = _pick(
+        gpu,
+        "gpu_use",
+        "gpu_activity_percent.gpu",
+        "utilization.gpu",
+        "usage.gpu",
+    )
+    util_pct = _safe_num(util, 0.0)
+
+    # temp_c
+    temp = _pick(
+        gpu,
+        "temperature.sensortemp",
+        "temperature.edge",
+        "Temperature (Sensor edge) (C)",
+        "sensor_edge_temp",
+    )
+    temp_c = _safe_num(temp)
+
+    # power_w
+    power = _pick(gpu, "power.current_socket_power", "power.manchip.totalpower")
+    if power is not None:
+        power_w = _safe_num(power)
+        # rocm-smi may report in mW
+        if "manchip" in str(_pick(gpu, "power.current_socket_power") or ""):
+            pass  # current_socket_power is already in W
+        elif "manchip" in str(power):
+            power_w = power_w / 1000.0 if power_w is not None else None
+        else:
+            power_w = power_w
+    else:
+        power_w = _safe_num(
+            _pick(gpu, "Current Socket Power (W)", "current_socket_power")
+        )
+
+    # power_limit_w
+    ppl = _pick(gpu, "power.pptlimit")
+    power_limit_w = _safe_num(ppl)
+    if power_limit_w is not None:
+        # may be in mW or a string like "N/A"
+        ppl_str = str(ppl) if ppl is not None else ""
+        if "N/A" in ppl_str.upper():
+            power_limit_w = None
+
+    # fan_pct
+    fan = _pick(gpu, "fan_speed")
+    fan_pct = _safe_num(fan)
+    if fan_pct is not None and isinstance(fan, list):
+        fan_pct = _safe_num(fan[0])
+
+    # clock_mhz
+    clk = _pick(gpu, "clocks_current_clk")
+    clock_mhz = _safe_num(
+        _pick(clk, "gfxclk") if isinstance(clk, dict) else None,
+        _pick(gpu, "sclk", "Average Graphics Clock (MHz)")
+    )
+
+    # mem_clock_mhz
+    memclk = _pick(gpu, "mem_clock_mhz", "clocks_current_clk.memclk", "mclk", "Average Memory Clock (MHz)")
+    mem_clock_mhz = _safe_num(memclk)
+
+    # pcie_gen
+    pcie = _pick(gpu, "pcie")
+    pcie_gen = _safe_num(
+        _pick(pcie, "linkgen.current") if isinstance(pcie, dict) else None,
+        _pick(gpu, "PCIe Speed (GT/s)", "pcie_gen")
+    )
+
+    # pcie_width
+    pcie_width = _safe_num(
+        _pick(pcie, "linkwidth.current") if isinstance(pcie, dict) else None,
+        _pick(gpu, "PCIe Width (Lanes)", "pcie_width")
+    )
+
+    # pstate
+    pstate = str(_pick(gpu, "pstate", "power_state") or "").strip()
+
+    # throttle
+    throttle_raw = _pick(gpu, "throttle_reason", "throttle_reasons")
+    throttle = _parse_throttle(str(throttle_raw) if throttle_raw is not None else "")
+
+    return {
+        "index": idx,
+        "name": name,
+        "driver": driver,
+        "mem_total_mb": int(mem_total_mb) if mem_total_mb is not None else 0,
+        "mem_used_mb": int(mem_used_mb) if mem_used_mb is not None else 0,
+        "mem_free_mb": int(mem_free_mb) if mem_free_mb is not None else 0,
+        "util_pct": util_pct,
+        "mem_util_pct": None,  # not available in AMD JSON
+        "temp_c": temp_c,
+        "power_w": power_w,
+        "power_limit_w": power_limit_w,
+        "fan_pct": fan_pct,
+        "clock_mhz": clock_mhz,
+        "mem_clock_mhz": mem_clock_mhz,
+        "pcie_gen": _safe_int(pcie_gen),
+        "pcie_width": _safe_int(pcie_width),
+        "pstate": pstate,
+        "temp_mem_c": None,
+        "ecc_corrected": 0,
+        "ecc_uncorrected": 0,
+        "throttle": throttle,
+        "apps": [],
+    }
 
 
 def parse_stat(section: str) -> Dict[str, Any]:
@@ -535,6 +783,11 @@ class SshPoller:
             log.warning("[%s] nvidia-smi 不存在或不在 PATH: %r — GPU 数据不可用", self.host_id, nvsmi)
         else:
             log.info("[%s] nvidia-smi: %s（CUDA %s）", self.host_id, nvsmi, self._cuda_ver or "не определён")
+        amdsmi = sec.get("AMDSMI", "").strip() or "?"
+        if amdsmi == "NOT_FOUND" or not amdsmi:
+            log.info("[%s] amd-smi/rocm-smi 不存在 — AMD GPU 数据不可用", self.host_id)
+        else:
+            log.info("[%s] amd-smi/rocm-smi: %s", self.host_id, amdsmi)
         self._static_done = True
         log.info("[%s] 静态信息: %s", self.host_id, sysinfo)
 
@@ -568,7 +821,7 @@ class SshPoller:
     def _parse_cycle(self, sec: Dict[str, str], ts: float) -> None:
         m = self.metrics
         # GPU + APPS
-        gpus = parse_gpu(sec.get("GPU", ""))
+        gpus = parse_gpu(sec.get("GPU", "")) or parse_amd_gpu(sec.get("AMDGPU", ""))
         if not gpus:
             now = time.time()
             if now - self._last_gpu_warn > 300:
