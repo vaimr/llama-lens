@@ -2,6 +2,7 @@ package collect
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -18,7 +19,7 @@ import (
 )
 
 // HostCollector 每 SysInterval（默认 2s）采集本机指标：
-// /proc 直读（CPU/内存/负载/网络/磁盘/进程）+ nvidia-smi（GPU）+ systemctl（服务）。
+// /proc 直读（CPU/内存/负载/网络/磁盘/进程）+ nvidia-smi / rocm-smi（GPU）+ systemctl（服务）。
 // 全部只读，不修改主机任何配置。
 type HostCollector struct {
 	cfg    *cfg.Config
@@ -719,6 +720,16 @@ func (h *HostCollector) scanProcs() []procSample {
 const gpuQuery = "index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,utilization.memory,temperature.gpu,power.draw,power.limit,fan.speed,clocks.current.graphics,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current,pstate,temperature.memory,ecc.errors.corrected.volatile.total,ecc.errors.uncorrected.volatile.total,clocks_throttle_reasons.active,uuid"
 
 func (h *HostCollector) readGPUs(ctx context.Context) []model.GPU {
+	// Try NVIDIA first, then AMD. Return first that yields data.
+	if gpus := h.readGPUsNVIDIA(ctx); len(gpus) > 0 {
+		return gpus
+	}
+	return h.readGPUsAMD(ctx)
+}
+
+// ---------- GPU（nvidia-smi） ----------
+
+func (h *HostCollector) readGPUsNVIDIA(ctx context.Context) []model.GPU {
 	// 1. Presence probe — nvidia-smi 不存在＝非 NVIDIA GPU 或无 GPU，正常静默。
 	if _, err := exec.LookPath("nvidia-smi"); err != nil {
 		return nil
@@ -954,6 +965,318 @@ func parseThrottle(raw string) int {
 	return n
 }
 
+// ---------- GPU（AMD: rocm-smi / amd-smi） ----------
+
+func (h *HostCollector) readGPUsAMD(ctx context.Context) []model.GPU {
+	// Check for rocm-smi or amd-smi (prefer rocm-smi).
+	var toolPath string
+	for _, tool := range []string{"rocm-smi", "amd-smi"} {
+		if p, err := exec.LookPath(tool); err == nil {
+			toolPath = p
+			break
+		}
+	}
+	if toolPath == "" {
+		return nil
+	}
+
+	cmd := exec.CommandContext(ctx, toolPath, "--showallinfo", "--json")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[collect] %s: %v (output: %s)", toolPath, err, strings.TrimSpace(string(out)))
+		return nil
+	}
+	return parseAMDJSON(string(out))
+}
+
+// parseAMDJSON parses rocm-smi --showallinfo --json (or amd-smi --json) output.
+// Returns whatever data can be extracted; never panics on unexpected structure.
+func parseAMDJSON(raw string) []model.GPU {
+	var root map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &root); err != nil {
+		return nil
+	}
+
+	// rocm-smi JSON: top-level keys include "rocm_smi_version" and GPU data
+	// under keys like "GPU" or a "gpus" array. amd-smi uses "gpu" array.
+	var gpuEntries []map[string]interface{}
+
+	// Try rocm-smi format: look for "GPUTOP" or "gpu" or iterate top-level keys
+	if v, ok := root["GPUTOP"]; ok {
+		if arr, ok := v.([]interface{}); ok {
+			gpuEntries = make([]map[string]interface{}, 0, len(arr))
+			for _, item := range arr {
+				if m, ok := item.(map[string]interface{}); ok {
+					gpuEntries = append(gpuEntries, m)
+				}
+			}
+		}
+	}
+	if len(gpuEntries) == 0 {
+		// Try "gpu" key (lowercase, some rocm-smi versions)
+		if v, ok := root["gpu"]; ok {
+			if arr, ok := v.([]interface{}); ok {
+				gpuEntries = make([]map[string]interface{}, 0, len(arr))
+				for _, item := range arr {
+					if m, ok := item.(map[string]interface{}); ok {
+						gpuEntries = append(gpuEntries, m)
+					}
+				}
+			}
+		}
+	}
+	if len(gpuEntries) == 0 {
+		// Try "gpus" key (amd-smi format)
+		if v, ok := root["gpus"]; ok {
+			if arr, ok := v.([]interface{}); ok {
+				gpuEntries = make([]map[string]interface{}, 0, len(arr))
+				for _, item := range arr {
+					if m, ok := item.(map[string]interface{}); ok {
+						gpuEntries = append(gpuEntries, m)
+					}
+				}
+			}
+		}
+	}
+	if len(gpuEntries) == 0 {
+		// Fallback: iterate top-level keys looking for GPU data
+		for key, val := range root {
+			if key == "rocm_smi_version" || key == "amdsmi_version" {
+				continue
+			}
+			if arr, ok := val.([]interface{}); ok {
+				for _, item := range arr {
+					if m, ok := item.(map[string]interface{}); ok {
+						gpuEntries = append(gpuEntries, m)
+					}
+				}
+			}
+		}
+	}
+	if len(gpuEntries) == 0 {
+		return nil
+	}
+
+	var gpus []model.GPU
+	for _, entry := range gpuEntries {
+		gpu := mapEntryToGPU(entry)
+		if gpu.Name != "" { // Only include GPUs with a recognizable name
+			gpus = append(gpus, gpu)
+		}
+	}
+	return gpus
+}
+
+// mapEntryToGPU maps a single rocm-smi JSON GPU entry to model.GPU.
+func mapEntryToGPU(entry map[string]interface{}) model.GPU {
+	var g model.GPU
+	g.Index = -1 // sentinel; will be set if available
+
+	// gpu_id
+	if v, ok := entry["gpu_id"]; ok {
+		g.Index = toInt(v)
+	}
+
+	// Identification: PCI address as UUID proxy
+	if v, ok := entry["drm_sysfs_class_drm"]; ok {
+		g.UUID = toString(v)
+	}
+	if g.UUID == "" {
+		// Try pci_address
+		if v, ok := entry["pci_identifier"]; ok {
+			g.UUID = toString(v)
+		}
+	}
+	if g.UUID == "" {
+		// Try product_name as fallback identifier
+		if v, ok := entry["product_name"]; ok {
+			g.UUID = toString(v)
+		}
+	}
+
+	// Name
+	if v, ok := entry["drm_device_name"]; ok {
+		g.Name = toString(v)
+	}
+	if g.Name == "" {
+		if v, ok := entry["product_name"]; ok {
+			g.Name = toString(v)
+		}
+	}
+
+	// Driver
+	if v, ok := entry["hardware.hwdriverversion"]; ok {
+		g.Driver = toString(v)
+	}
+	if g.Driver == "" {
+		if v, ok := entry["driver_version"]; ok {
+			g.Driver = toString(v)
+		}
+	}
+
+	// Memory (rocm-smi uses KB)
+	if hw, ok := entry["hardware"].(map[string]interface{}); ok {
+		if v, ok := hw["hwmemtotal"]; ok {
+			g.MemTotalMB = toIntKB(v)
+		}
+		if v, ok := hw["hwmemused"]; ok {
+			g.MemUsedMB = toIntKB(v)
+		}
+	}
+	// Fallback: top-level mem fields (some rocm-smi versions)
+	if g.MemTotalMB == 0 {
+		if v, ok := entry["mem_total"]; ok {
+			g.MemTotalMB = toIntKB(v)
+		}
+	}
+	if g.MemUsedMB == 0 {
+		if v, ok := entry["mem_used"]; ok {
+			g.MemUsedMB = toIntKB(v)
+		}
+	}
+	g.MemFreeMB = g.MemTotalMB - g.MemUsedMB
+
+	// Utilization
+	if act, ok := entry["gpu_activity_percent"].(map[string]interface{}); ok {
+		if v, ok := act["gpu"]; ok {
+			g.UtilPct = toFloat(v)
+		}
+	}
+	// Fallback: top-level gpu_activity_percent
+	if g.UtilPct == 0 {
+		if v, ok := entry["gpu_activity_percent"]; ok {
+			g.UtilPct = toFloat(v)
+		}
+	}
+
+	// Temperature
+	if temp, ok := entry["temperature"].(map[string]interface{}); ok {
+		if v, ok := temp["sensortemp"]; ok {
+			g.TempC = f64p(toFloat(v))
+		}
+	}
+	// Fallback: top-level temperature
+	if g.TempC == nil {
+		if v, ok := entry["temperature"]; ok {
+			g.TempC = f64p(toFloat(v))
+		}
+	}
+
+	// Power (rocm-smi uses mW)
+	if pwr, ok := entry["power"].(map[string]interface{}); ok {
+		if mc, ok := pwr["manchip"].(map[string]interface{}); ok {
+			if v, ok := mc["totalpower"]; ok {
+				g.PowerW = f64p(toFloatMW(v))
+			}
+			if v, ok := mc["pptlimit"]; ok {
+				g.PowerLimitW = f64p(toFloatMW(v))
+			}
+		}
+	}
+	// Fallback: top-level power fields
+	if g.PowerW == nil {
+		if v, ok := entry["power_draw"]; ok {
+			g.PowerW = f64p(toFloatMW(v))
+		}
+	}
+	if g.PowerLimitW == nil {
+		if v, ok := entry["power_limit"]; ok {
+			g.PowerLimitW = f64p(toFloatMW(v))
+		}
+	}
+
+	// Fan speed
+	if fan, ok := entry["fan_speed"].([]interface{}); ok && len(fan) > 0 {
+		g.FanPct = f64p(toFloat(fan[0]))
+	} else if fan, ok := entry["fan_speed"].(float64); ok {
+		g.FanPct = f64p(fan)
+	} else if fan, ok := entry["fan_speed"].(string); ok {
+		g.FanPct = f64p(toFloat(fan))
+	}
+
+	// Clock speeds
+	if clocks, ok := entry["clocks_current_clk"].(map[string]interface{}); ok {
+		if v, ok := clocks["gfxclk"]; ok {
+			g.ClockMHz = intPtr(toInt(v))
+		}
+		if g.ClockMHz == nil {
+			if v, ok := clocks["coreclk"]; ok {
+				g.ClockMHz = intPtr(toInt(v))
+			}
+		}
+	}
+	// Fallback: top-level sclk or gfxclk
+	if g.ClockMHz == nil {
+		if v, ok := entry["sclk"]; ok {
+			g.ClockMHz = intPtr(toInt(v))
+		}
+	}
+	if g.ClockMHz == nil {
+		if v, ok := entry["gfxclk"]; ok {
+			g.ClockMHz = intPtr(toInt(v))
+		}
+	}
+	// Memory clock
+	if clocks, ok := entry["clocks_current_clk"].(map[string]interface{}); ok {
+		if v, ok := clocks["memclk"]; ok {
+			g.MemClockMHz = intPtr(toInt(v))
+		}
+	}
+	if g.MemClockMHz == nil {
+		if v, ok := entry["memclk"]; ok {
+			g.MemClockMHz = intPtr(toInt(v))
+		}
+	}
+
+	// PCIe link
+	if pcie, ok := entry["pcielink"].(map[string]interface{}); ok {
+		if link, ok := pcie["linkgen"].(map[string]interface{}); ok {
+			if v, ok := link["current"]; ok {
+				g.PCIEGen = intPtr(toInt(v))
+			}
+		}
+		if link, ok := pcie["linkwidth"].(map[string]interface{}); ok {
+			if v, ok := link["current"]; ok {
+				g.PCIEWidth = intPtr(toInt(v))
+			}
+		}
+	}
+	// Fallback: top-level pcie fields
+	if g.PCIEGen == nil {
+		if v, ok := entry["pcie_gen"]; ok {
+			g.PCIEGen = intPtr(toInt(v))
+		}
+	}
+	if g.PCIEWidth == nil {
+		if v, ok := entry["pcie_width"]; ok {
+			g.PCIEWidth = intPtr(toInt(v))
+		}
+	}
+
+	// PState
+	if v, ok := entry["pstate"]; ok {
+		g.PState = toString(v)
+	}
+	if g.PState == "" {
+		if v, ok := entry["power_state"]; ok {
+			g.PState = toString(v)
+		}
+	}
+
+	// Apps: not tracked for AMD (leave nil)
+	// CUDA: not applicable for AMD
+	// TempMemC, ECC: not available from rocm-smi
+
+	// Throttle
+	if throttle, ok := entry["throttle_reason"].(string); ok {
+		g.Throttle = parseThrottle(throttle)
+	} else if throttle, ok := entry["throttle_reasons"]; ok {
+		g.Throttle = parseThrottle(toString(throttle))
+	}
+
+	return g
+}
+
 // ---------- 命令行参数解析（与面板 llama_flags.parse_cmdline 一致） ----------
 
 var flagMap = map[string][2]string{
@@ -1051,6 +1374,67 @@ func intFromStr(s string) *int {
 		return nil
 	}
 	return &n
+}
+
+// ---------- AMD JSON helpers ----------
+
+// toInt safely converts an interface{} to int.
+func toInt(v interface{}) int {
+	switch val := v.(type) {
+	case int:
+		return val
+	case int64:
+		return int(val)
+	case float64:
+		return int(val)
+	case string:
+		return atoi(val)
+	}
+	return 0
+}
+
+// toFloat safely converts an interface{} to float64.
+func toFloat(v interface{}) float64 {
+	switch val := v.(type) {
+	case float64:
+		return val
+	case int:
+		return float64(val)
+	case int64:
+		return float64(val)
+	case string:
+		f, _ := strconv.ParseFloat(strings.TrimSpace(val), 64)
+		return f
+	}
+	return 0
+}
+
+// toFloatMW converts a value that may be in milliwatts to watts (divide by 1000).
+func toFloatMW(v interface{}) float64 {
+	return toFloat(v) / 1000
+}
+
+// toIntKB converts a value in kilobytes to megabytes (divide by 1024).
+func toIntKB(v interface{}) int {
+	return toInt(v) / 1024
+}
+
+// toString safely converts an interface{} to string.
+func toString(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(val)
+	case int64:
+		return strconv.FormatInt(val, 10)
+	case nil:
+		return ""
+	default:
+		return fmt.Sprintf("%v", val)
+	}
 }
 
 func fmtSeconds(totalS float64) string {
