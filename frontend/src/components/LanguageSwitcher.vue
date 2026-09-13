@@ -1,12 +1,20 @@
 <template>
   <select :value="locale" @change="onChange">
-    <option value="en">EN</option>
-    <option value="ru">РУ</option>
+    <option value="en">{{ languageLabel.en }}</option>
+    <option value="ru">{{ languageLabel.ru }}</option>
+    <option value="zh">{{ languageLabel.zh }}</option>
   </select>
 </template>
 
 <script setup>
 import { locale, setLocale } from '../i18n'
+import { t } from '../i18n'
+
+const languageLabel = {
+  en: t('language.en'),
+  ru: t('language.ru'),
+  zh: t('language.zh')
+}
 
 function onChange(e) {
   setLocale(e.target.value)

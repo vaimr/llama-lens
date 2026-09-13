@@ -3,6 +3,7 @@ package collect
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -718,18 +719,74 @@ func (h *HostCollector) scanProcs() []procSample {
 const gpuQuery = "index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,utilization.memory,temperature.gpu,power.draw,power.limit,fan.speed,clocks.current.graphics,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current,pstate,temperature.memory,ecc.errors.corrected.volatile.total,ecc.errors.uncorrected.volatile.total,clocks_throttle_reasons.active,uuid"
 
 func (h *HostCollector) readGPUs(ctx context.Context) []model.GPU {
-	cmd := exec.CommandContext(ctx, "bash", "-c",
-		"echo ==GPU==\n"+
-			"nvidia-smi --query-gpu="+gpuQuery+" --format=csv,noheader,nounits 2>/dev/null\n"+
-		"echo ==APPS==\n"+
-			"nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits 2>/dev/null\n"+
-			"echo ==END==")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
+	// 1. Presence probe — nvidia-smi 不存在＝非 NVIDIA GPU 或无 GPU，正常静默。
+	if _, err := exec.LookPath("nvidia-smi"); err != nil {
 		return nil
 	}
-	sections := splitSections(string(out))
 
+	// 2. Run nvidia-smi, capture stderr (do NOT discard).
+	//    Track per-command exit codes via ==RC== markers so we can distinguish:
+	//      - nvidia-smi exit 0 + GPU section non-empty  → normal
+	//      - nvidia-smi exit non-zero                   → error detail
+	//      - nvidia-smi exit 0  but GPU section empty   → driver/query issue
+	smiHost := ""
+	if h.cfg != nil {
+		smiHost = h.cfg.Name
+	}
+
+	cmd := exec.CommandContext(ctx, "bash", "-c",
+		"echo ==GPU==\n"+
+			"nvidia-smi --query-gpu="+gpuQuery+" --format=csv,noheader,nounits 2>&1; echo ==RC:$?==\n"+
+		"echo ==APPS==\n"+
+			"nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory --format=csv,noheader,nounits 2>&1; echo ==RC:$?==\n"+
+			"echo ==END==")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// bash -c exit code is from the last command (echo ==END==) so err is
+		// almost always nil.  Log only when nvidia-smi itself failed.
+		// We check RC markers below; if both are missing err is likely bash
+		// itself (extremely rare) — log and return nil.
+		log.Printf("[collect] nvidia-smi (%s): bash execution failed: %v", smiHost, err)
+		return nil
+	}
+
+	raw := string(out)
+	sections := splitSections(raw)
+
+	// 3. Parse exit code from ==RC== line in GPU section.
+	gpuRC := parseRC(sections["GPU"])
+
+	// 4. Check for empty GPU section (nvidia-smi ran but returned no rows).
+	gpuRows := 0
+	for _, line := range strings.Split(sections["GPU"], "\n") {
+		if strings.TrimSpace(line) != "" {
+			gpuRows++
+		}
+	}
+
+	if gpuRows == 0 || gpuRC != 0 {
+		// nvidia-smi exists but produced no usable data — log full diagnostics.
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprintf("[collect] nvidia-smi (%s): no GPU data", smiHost))
+		if gpuRC != 0 {
+			msg.WriteString(fmt.Sprintf(" (exit %d)", gpuRC))
+		}
+		// Include stderr / error output (trimmed, cap at 40 lines).
+		gpuSection := strings.TrimSpace(sections["GPU"])
+		if gpuSection != "" {
+			lines := strings.Split(gpuSection, "\n")
+			if len(lines) > 40 {
+				lines = lines[:40]
+			}
+			msg.WriteString(":\n  ")
+			msg.WriteString(strings.ReplaceAll(strings.Join(lines, "\n  "), "\n", "\n  "))
+		}
+		log.Printf("%s", msg.String())
+		return nil
+	}
+
+	// 5. Normal path: parse GPU rows.
 	var gpus []model.GPU
 	for _, line := range strings.Split(sections["GPU"], "\n") {
 		line = strings.TrimSpace(line)
@@ -783,6 +840,21 @@ func (h *HostCollector) readGPUs(ctx context.Context) []model.GPU {
 		}
 	}
 	return gpus
+}
+
+// parseRC extracts the numeric exit code from an ==RC:N== line, or returns 0
+// when no marker is present (means the section was never produced, not failure).
+func parseRC(section string) int {
+	for _, line := range strings.Split(section, "\n") {
+		s := strings.TrimSpace(line)
+		if strings.HasPrefix(s, "==RC:") && strings.HasSuffix(s, "==") {
+			code := strings.TrimSuffix(strings.TrimPrefix(s, "==RC:"), "==")
+			if n, err := strconv.Atoi(code); err == nil {
+				return n
+			}
+		}
+	}
+	return 0
 }
 
 // parseGPUApps 解析 nvidia-smi --query-compute-apps 输出（gpu_uuid,pid,process_name,used_memory）。

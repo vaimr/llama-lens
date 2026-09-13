@@ -1,9 +1,10 @@
 import { ref } from 'vue'
 import en from './locales/en'
 import ru from './locales/ru'
+import zh from './locales/zh'
 
-export const SUPPORTED = ['en', 'ru']
-export const LOCALES = { en, ru }
+export const SUPPORTED = ['en', 'ru', 'zh']
+export const LOCALES = { en, ru, zh }
 const STORAGE_KEY = 'llamalens-lang'
 
 function initialLocale() {
@@ -13,6 +14,7 @@ function initialLocale() {
   } catch (e) { /* privacy mode */ }
   try {
     const browser = navigator.language
+    if (browser.startsWith('zh')) return 'zh'
     if (browser.startsWith('ru')) return 'ru'
   } catch (e) { /* privacy mode */ }
   return 'en'

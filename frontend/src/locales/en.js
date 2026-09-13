@@ -2,7 +2,8 @@ export default {
   language: {
     label: 'Language',
     en: 'EN',
-    ru: 'РУ'
+    ru: 'РУ',
+    zh: 'ZH'
   },
   brand: {
     name: 'LlamaLens',
@@ -12,174 +13,223 @@ export default {
     title: 'LlamaLens · llama-server real-time monitoring'
   },
   portal: {
-    noHosts: 'No hosts connected',
-    waiting: 'Waiting for hosts...'
+    no_hosts: 'No hosts connected',
+    add_hosts: 'Add hosts'
   },
-  router: {
-    portal: 'Portal',
-    host: 'Host'
+  barCard: {
+    '60s_stats': '60s',
+    peak: 'peak',
+    avg: 'avg'
   },
-  theme: {
-    labels: {
-      aurora: 'Aurora',
-      terminal: 'Terminal',
-      default: 'Default'
-    }
-  },
-  hostStatus: {
-    allHosts: 'All Hosts',
-    nA: 'N/A',
-    offline: 'Offline',
-    connected: 'Connected',
-    disconnected: 'Disconnected'
-  },
-  speed: {
-    label: 'Speed',
-    noActiveSlot: 'No active slot',
-    noModelsLoaded: 'No models loaded'
-  },
-  hostCard: {
-    model: 'Model',
-    params: 'Params',
+  brandBar: {
+    hosts: 'Hosts',
+    online: 'Online',
+    polling: 'Polling',
     speed: 'Speed',
-    gpu: 'GPU',
-    vram: 'VRAM',
-    temp: 'Temp',
-    power: 'Power',
-    fan: 'Fan',
-    cpu: 'CPU',
-    mem: 'Mem',
-    nA: 'N/A',
-    noModelLoaded: 'No model loaded',
-    noData: 'No data'
+    ws_realtime: 'WS Real-time'
   },
-  gpu: {
-    utilization: 'GPU Utilization',
-    memory: 'GPU Memory',
-    temperature: 'Temperature',
-    power: 'Power',
-    fanSpeed: 'Fan Speed',
-    gpu: 'GPU',
-    percent: '%',
-    celsius: '°C',
-    watts: 'W'
-  },
-  cpu: {
-    usage: 'CPU Usage',
+  cpuPanel: {
+    clock_speed: 'Clock Speed',
     cores: 'Cores',
-    loadAverage: 'Load Average',
-    frequency: 'Frequency',
-    cpu: 'CPU',
-    percent: '%',
-    cores: 'cores',
-    load: 'load',
-    mhz: 'MHz'
+    load: 'Load'
   },
-  memory: {
-    usage: 'Memory Usage',
-    swap: 'Swap',
-    cache: 'Cache',
-    mem: 'Mem',
-    percent: '%',
-    gb: 'GB'
-  },
-  network: {
-    label: 'Network',
-    interface: 'Interface',
-    rx: 'RX',
-    tx: 'TX',
-    mbps: 'Mbps'
-  },
-  disk: {
-    label: 'Disk',
+  diskPanel: {
+    title: 'Disk',
     mount: 'Mount',
+    capacity: 'Capacity',
+    used: 'Used',
+    available: 'Available',
+    usage_rate: 'Usage Rate',
     read: 'Read',
     write: 'Write',
-    mbps: 'MB/s'
-  },
-  modelInfo: {
-    path: 'Model Path',
-    parameters: 'Parameters',
-    embedding: 'Embedding',
-    vocab: 'Vocab',
-    nA: 'N/A'
-  },
-  llamaState: {
-    phase: 'Phase',
-    taskId: 'Task ID',
-    promptProcessing: 'Prompt Processing',
-    generation: 'Generation',
-    idle: 'Idle',
-    processing: 'Processing',
-    generating: 'Generating',
-    tokens: 'Tokens',
-    prompt: 'Prompt',
-    eval: 'Eval',
-    total: 'Total',
-    nA: 'N/A'
-  },
-  llamaProcess: {
-    process: 'Process',
-    pid: 'PID',
-    cpu: 'CPU%',
-    rss: 'RSS',
-    vsz: 'VSZ',
-    service: 'Service',
-    nA: 'N/A'
-  },
-  slotTable: {
-    slot: 'Slot',
-    id: 'ID',
-    context: 'Context',
-    decoded: 'Decoded',
-    speed: 'Speed',
-    nA: 'N/A'
-  },
-  topProcessTable: {
-    pid: 'PID',
-    cpu: 'CPU%',
-    mem: 'MEM%',
-    rss: 'RSS',
-    command: 'COMMAND'
+    no_data: 'No data'
   },
   eventFeed: {
     title: 'Event Stream',
-    noEvents: 'No events yet',
-    newEvent: 'New Event'
+    no_events: 'No events yet',
+    new_events: 'New Events'
   },
-  themeSwitcher: {
-    label: 'Theme'
+  gpuPanel: {
+    utilization: 'Utilization',
+    vram: 'VRAM',
+    temperature: 'Temperature',
+    vram_temp: 'VRAM Temp',
+    power: 'Power',
+    vram_util: 'VRAM Util',
+    fan: 'Fan',
+    clock: 'Clock',
+    throttle: 'Throttle',
+    ecc: 'ECC',
+    cuda_version: 'CUDA Version',
+    driver_version: 'Driver Version',
+    occupied_processes: 'Occupied Processes',
+    hw_throttle: 'HW Throttle',
+    thermal_throttle: 'Thermal Throttle',
+    power_cap: 'Power Cap',
+    power_brake: 'Power Brake',
+    thermal_power_brake: 'Thermal Power Brake',
+    normal: 'Normal'
   },
-  terminal: {
-    prompt: '$ ',
-    title: 'Terminal',
-    connected: 'Connected',
-    disconnected: 'Disconnected'
+  hostCard: {
+    cpu: 'CPU',
+    mem: 'MEM',
+    vram: 'VRAM',
+    llama_offline: 'llama offline',
+    ssh_disconnected: 'SSH disconnected',
+    no_gpu_data: 'No GPU data',
+    no_model: 'No model loaded',
+    params_suffix: 'B'
   },
   hostDetail: {
-    title: 'Host Details',
-    systemResources: 'System Resources',
-    modelInfo: 'Model Info',
-    llamaState: 'Llama State',
-    processList: 'Process List',
-    events: 'Events',
+    unreachable: 'Host unreachable (llama offline + SSH disconnected)',
+    overview: 'Live Overview',
+    gen_speed: 'Token Generation Speed',
+    prompt_speed: 'Prefill Speed',
+    context_usage: 'Context Usage',
+    mtp_acceptance: 'MTP Acceptance Rate',
     gpu: 'GPU',
+    no_data_ssh: 'Data unavailable (SSH disconnected)',
+    live_tasks: 'Live Generation Tasks',
+    system_resources: 'System Resources',
+    model_and_slots: 'Model & Slots',
+    processes: 'Processes',
+    trends: 'Historical Trends',
+    paused: 'Paused',
+    used: 'Used',
+    buff_cache: 'Buff/Cache',
+    downlink: 'Downlink',
+    uplink: 'Uplink',
+    gpu_util: 'GPU Utilization',
+    gpu_mem: 'GPU Memory',
+    gpu_temp: 'GPU Temperature',
+    gpu_power: 'GPU Power',
     cpu: 'CPU',
     memory: 'Memory',
     network: 'Network',
-    disk: 'Disk'
+    load_avg: 'Load Average',
+    wait_task_end: 'Waiting for task to end',
+    truncated: 'Truncated',
+    source: 'Source',
+    task_avg_speed: 'Task Avg Speed',
+    last: 'Last',
+    remaining_short: 'Remaining',
+    progress: 'Progress',
+    eta_remaining: 'ETA Remaining',
+    system_label: 'System'
+  },
+  llamaProcess: {
+    title: 'llama-server Process',
+    pid: 'PID',
+    realtime_cpu: 'Real-time CPU',
+    cumulative_cpu: 'Cumulative CPU',
+    rss: 'RSS',
+    vsz: 'VSZ',
+    threads: 'Threads',
+    uptime: 'Uptime',
+    service: 'Service',
+    memory: 'Memory',
+    started_at: 'Started At',
+    full_command_line: 'Full Command Line',
+    not_found: 'llama-server process not found',
+    not_found_alt: 'Process not found (may be running under another name)',
+    peak: 'peak',
+    params_table: 'Params table ({{count}})'
+  },
+  llamaState: {
+    log_live: 'Log Live',
+    log_unavailable: 'Log Unavailable',
+    log_unavailable_api: 'Logs unavailable, using API data',
+    task_id: 'Task ID',
+    child_task: 'Child Task',
+    slot: 'Slot',
+    prompt_processing: 'Prompt Processing',
+    prompt_speed: 'Prompt Speed',
+    prompt_processed: 'Prompt Processed',
+    elapsed: 'Elapsed',
+    prompt_total: 'Prompt Total',
+    eta_remaining: 'ETA Remaining',
+    context_usage: 'Context Usage',
+    kv_cache_hit: 'KV Cache Hit',
+    decoded: 'Decoded',
+    realtime_speed: 'Real-time Speed',
+    avg_speed: 'Avg Speed',
+    eta_completion: 'ETA Completion',
+    mtp_acceptance_rate: 'MTP Acceptance Rate',
+    remaining_tokens: 'Remaining Tokens',
+    cache_hit: 'Cache Hit',
+    graphs_reused: 'Graphs Reused',
+    idle: 'Idle',
+    offline: 'Offline',
+    unknown: 'Unknown',
+    generating: 'Generating',
+    running: 'Running',
+    unlimited: 'Unlimited',
+    spec_decoding: 'Speculative Decoding',
+    kv_cache: 'KV Cache',
+    batch_size: 'Batch Size',
+    gpu_layers: 'GPU Layers',
+    last_task: 'Last Task',
+    prefill_time: 'Prefill Time',
+    gen_time: 'Generation Time',
+    total_time: 'Total Time'
+  },
+  memPanel: {
+    title: 'Memory',
+    total: 'Total',
+    used: 'Used',
+    available: 'Available',
+    usage_rate: 'Usage Rate',
+    no_swap: 'No Swap'
+  },
+  modelInfo: {
+    title: 'Model',
+    path: 'Path',
+    parameters: 'Parameters',
+    embedding: 'Embedding Dimensions',
+    vocab_size: 'Vocab Size',
+    file_size: 'File Size',
+    no_data: 'No model data',
+    modalities: 'Modalities',
+    capabilities: 'Capabilities',
+    capabilities_vision: 'vision',
+    capabilities_video: 'video',
+    capabilities_audio: 'audio'
+  },
+  netPanel: {
+    title: 'Network',
+    interface: 'Interface',
+    rx: 'Downlink',
+    tx: 'Uplink',
+    cumulative_down: 'Cumulative ↓',
+    cumulative_up: 'Cumulative ↑',
+    nics: 'NICs',
+    no_data: 'No data'
+  },
+  slotTable: {
+    context_usage: 'Context Usage',
+    decoded: 'Decoded',
+    enabled: 'Enabled',
+    idle: 'Idle',
+    no_data: 'No Slot data',
+    processed_cached: 'Processed / Cached',
+    processing: 'Processing',
+    remaining: 'Remaining',
+    speed: 'Speed',
+    speculative_decoding: 'Speculative Decoding',
+    task_id: 'Task ID',
+    sampling_params: 'Sampling Params'
   },
   topBar: {
     back: 'Back',
     speed: 'Speed',
     context: 'Context',
     memory: 'Memory',
-    llama_offline: 'LLaMA offline',
+    llama_offline: 'llama offline',
     ssh_disconnected: 'SSH disconnected',
     online: 'Online',
     realtime: 'Real-time',
     paused: 'Paused',
-    ws_disconnected: 'WS disconnected',
+    ws_disconnected: 'WS disconnected · polling',
     util_temp_power_mem: 'Util / Temp / Power / Mem Used / Total',
     cpu_util: 'CPU Utilization',
     data_channel: 'Data channel',
@@ -192,88 +242,19 @@ export default {
     mem_used: 'Mem used',
     total: 'Total'
   },
-  llamaState: {
-    log_live: 'Log live',
-    log_unavailable: 'Log unavailable',
-    running: 'Running',
-    task_id: 'Task ID',
-    child_task: 'child task',
-    slot: 'Slot',
-    prompt_speed: 'Prompt speed',
-    prompt_processed: 'Prompt processed',
-    elapsed: 'Elapsed',
-    prompt_total: 'Prompt total',
-    eta_remaining: 'ETA remaining',
-    context_usage: 'Context usage',
-    kv_cache_hit: 'KV cache hit',
-    decoded: 'Decoded',
-    realtime_speed: 'Real-time speed',
-    avg_speed: 'Avg speed',
-    eta_completion: 'ETA completion',
-    mtp_acceptance_rate: 'MTP acceptance rate',
-    remaining_tokens: 'Remaining tokens',
-    cache_hit: 'Cache hit',
-    graphs_reused: 'Graphs reused',
-    idle: 'Idle',
-    log_unavailable_api: '⌁ Logs unavailable (API not ready)',
-    offline: 'Offline',
-    unknown: 'Unknown',
-    prompt_processing: 'Prompt Processing',
-    generating: 'Generating',
-    unlimited: 'Unlimited',
-    spec_decoding: 'Spec decoding',
-    kv_cache: 'KV cache',
-    batch_size: 'Batch size',
-    gpu_layers: 'GPU layers',
-    last_task: 'Last task'
+  topProcessTable: {
+    no_data: 'No data',
+    process: 'Process',
+    top_cpu: 'Top CPU',
+    top_memory: 'Top Memory'
   },
-  hostDetail: {
-    unreachable: 'Host unreachable (SSH down)',
-    overview: 'Live Overview',
-    gen_speed: 'Gen Speed',
-    prompt_speed: 'Prompt Speed',
-    context_usage: 'Context Usage',
-    mtp_acceptance: 'MTP Acceptance',
-    gpu: 'GPU',
-    live_tasks: 'Live Tasks',
-    system_resources: 'System Resources',
-    model_and_slots: 'Model & Slots',
-    processes: 'Processes',
-    trends: 'Trends',
-    paused: 'Paused',
-    used: 'Used',
-    buff_cache: 'Buff/Cache',
-    downlink: 'Downlink',
-    uplink: 'Uplink',
-    gpu_util: 'GPU Util',
-    gpu_mem: 'GPU Mem',
-    gpu_temp: 'GPU Temp',
-    gpu_power: 'GPU Power',
-    cpu: 'CPU',
-    memory: 'Memory',
-    network: 'Network',
-    load_avg: 'Load Avg',
-    no_data_ssh: 'Data unavailable (SSH disconnected)',
-    wait_task_end: 'Waiting for task to end',
-    truncated: 'Truncated',
-    source: 'Source',
-    task_avg_speed: 'Task avg speed',
-    last: 'Last',
-    remaining_short: 'Remaining',
-    progress: 'Progress',
-    eta_remaining: 'ETA remaining',
-    system_label: 'System'
+  themeSwitcher: {
+    label: 'Theme'
   },
-  barCard: {
-    '60s_stats': '60s',
-    peak: 'peak',
-    avg: 'avg'
-  },
-  brandBar: {
-    hosts: 'Hosts',
-    active: 'Active',
+  terminal: {
+    prompt: '$ ',
+    title: 'Terminal',
     connected: 'Connected',
-    disconnected: 'Disconnected',
-    speed: 'Speed'
+    disconnected: 'Disconnected'
   }
 }
