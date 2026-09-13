@@ -36,11 +36,11 @@ Real-time multi-host monitoring panel for the llama.cpp `llama-server` inference
 | [README.en.md](README.en.md) | English main documentation (this document) |
 | [README.ru.md](README.ru.md) | Russian main documentation |
 | Requirements | [01-需求文档.md](01-需求文档.md) | Requirements baseline (Chinese) |
-|  | [01-需求文档.en.md](01-需求文档.en.md) · [01-需求文档.ru.md](01-需求文档.ru.md) | Requirements translations |
+|  | [01-requirements.en.md](01-requirements.en.md) · [01-требования.ru.md](01-требования.ru.md) | Requirements translations |
 | Architecture | [02-架构设计文档.md](02-架构设计文档.md) | Architecture, collectors, data model, API, deployment (Chinese) |
-|  | [02-架构设计文档.en.md](02-架构设计文档.en.md) · [02-架构设计文档.ru.md](02-架构设计文档.ru.md) | Architecture translations |
+|  | [02-architecture.en.md](02-architecture.en.md) · [02-архитектура.ru.md](02-архитектура.ru.md) | Architecture translations |
 | UI & Interaction | [03-UI与交互设计文档.md](03-UI与交互设计文档.md) | Visual spec, page layout, components, interaction (Chinese) |
-|  | [03-UI与交互设计文档.en.md](03-UI与交互设计文档.en.md) · [03-UI与交互设计文档.ru.md](03-UI与交互设计文档.ru.md) | UI & Interaction translations |
+|  | [03-ui-and-interaction.en.md](03-ui-and-interaction.en.md) · [03-ui-и-взаимодействие.ru.md](03-ui-и-взаимодействие.ru.md) | UI & Interaction translations |
 
 ## Tech stack
 

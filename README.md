@@ -36,11 +36,11 @@ llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 | [docs/README.en.md](docs/README.en.md) | 英文主文档 |
 | [docs/README.ru.md](docs/README.ru.md) | 俄文主文档 |
 | 需求基线 | [01-需求文档](docs/01-需求文档.md) | 需求基线（后续开发主依据） |
-|  | [EN](docs/01-需求文档.en.md) · [RU](docs/01-需求文档.ru.md) | 需求基线翻译 |
+|  | [EN](docs/01-requirements.en.md) · [RU](docs/01-требования.ru.md) | 需求基线翻译 |
 | 架构设计 | [02-架构设计文档](docs/02-架构设计文档.md) | 架构、采集、数据模型、API、部署 |
-|  | [EN](docs/02-架构设计文档.en.md) · [RU](docs/02-架构设计文档.ru.md) | 架构设计翻译 |
+|  | [EN](docs/02-architecture.en.md) · [RU](docs/02-архитектура.ru.md) | 架构设计翻译 |
 | UI 与交互 | [03-UI与交互设计文档](docs/03-UI与交互设计文档.md) | 视觉规范、页面布局、组件、交互 |
-|  | [EN](docs/03-UI与交互设计文档.en.md) · [RU](docs/03-UI与交互设计文档.ru.md) | UI 交互设计翻译 |
+|  | [EN](docs/03-ui-and-interaction.en.md) · [RU](docs/03-ui-и-взаимодействие.ru.md) | UI 交互设计翻译 |
 
 ## 技术栈
 
