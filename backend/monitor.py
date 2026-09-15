@@ -162,8 +162,15 @@ class HostMonitor:
         if isinstance(process_data, list) and model_paths:
             for p in process_data:
                 pid = p.get("pid")
-                if pid and pid in model_paths:
-                    p["model_path"] = model_paths[pid]
+                # pid может быть int или str (зависит от serialisation), проверяем оба
+                if pid:
+                    if pid in model_paths:
+                        p["model_path"] = model_paths[pid]
+                    else:
+                        # Пробуем строковое представление
+                        str_pid = str(pid)
+                        if str_pid in model_paths:
+                            p["model_path"] = model_paths[str_pid]
 
         # 上下文：API 实时值（slot）优先，日志（任务结束行）兜底。
         # 注意 logst 是 LogPoller 的活引用，合并结果必须放副本，不能改原 state。
