@@ -82,23 +82,23 @@ for pid in $(pgrep -x "{process_name}"); do
   mmproj=""
   
   # Используем awk для надёжного парсинга без Perl regex
-  model=$(echo "$cmdline_raw" | awk '{
-    for (i=1; i<=NF; i++) {
-      if ($i == "--model" || $i == "-m") {
+  model=$(echo "$cmdline_raw" | awk '{{
+    for (i=1; i<=NF; i++) {{
+      if ($i == "--model" || $i == "-m") {{
         print $(i+1)
         exit
-      }
-    }
-  }')
+      }}
+    }}
+  }}')
   
-  mmproj=$(echo "$cmdline_raw" | awk '{
-    for (i=1; i<=NF; i++) {
-      if ($i == "--mmproj") {
+  mmproj=$(echo "$cmdline_raw" | awk '{{
+    for (i=1; i<=NF; i++) {{
+      if ($i == "--mmproj") {{
         print $(i+1)
         exit
-      }
-    }
-  }')
+      }}
+    }}
+  }}')
   
   if [ -n "$model" ]; then
     echo "MODEL:$pid:$model"
