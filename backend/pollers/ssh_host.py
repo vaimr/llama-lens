@@ -772,6 +772,14 @@ def parse_proc(section: str, diff: DiffEngine, ts: float, host_id: str) -> Dict[
                 proc_lines.append(lines[i])
                 i += 1
             proc = _parse_single_proc(pid, proc_lines, diff, ts, host_id)
+            # Debug: выводим cmdline для каждого процесса
+            cl = proc.get("cmdline", "")
+            if cl:
+                cl_preview = cl[:120]
+            else:
+                cl_preview = "(EMPTY)"
+            import sys
+            print(f"[SSH {host_id}] PROC_PID:{pid} cmdline_preview=[{cl_preview}]", file=sys.stderr)
             procs.append(proc)
         else:
             i += 1
