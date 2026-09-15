@@ -122,19 +122,27 @@ class HostMonitor:
 
         # 模型合并：/props + /v1/models + 命令行(mmproj) + ls -l(体积)
         model = dict(llama.get("model") or {})
-        cmdline = (hm.get("process") or {}).get("cmdline", "")
-        if cmdline != self._last_cmdline:
-            self._last_cmdline = cmdline
-            self._flags = parse_cmdline(cmdline)
-        flags = self._flags
+        
+        # 从 _mmproj_paths 获取 per-pid mmproj（新版多进程）
+        # 匹配当前 model.path 找到对应的 mmproj
+        mmproj_paths = hm.get("_mmproj_paths") or {}
+        model_path = model.get("path", "")
+        if model_path and model_path in mmproj_paths.values():
+            # 找到匹配的 pid
+            for pid, mp in mmproj_paths.items():
+                if mp == model_path:
+                    # mmproj 路径需要从路径中提取文件名
+                    model["mmproj_path"] = mp
+                    break
+        elif mmproj_paths:
+            # 如果没有匹配，取第一个进程的 mmproj
+            first_mmproj = next(iter(mmproj_paths.values()), None)
+            if first_mmproj:
+                model["mmproj_path"] = first_mmproj
+        
         sizes = hm.get("_model_sizes") or {}
         if model.get("path") and model.get("path") in sizes:
             model["file_size"] = sizes[model["path"]]
-        mmproj = flags.get("mmproj")
-        if mmproj:
-            model["mmproj_path"] = mmproj
-            if mmproj in sizes:
-                model["mmproj_size"] = sizes[mmproj]
 
         host_metrics = {k: v for k, v in hm.items() if k != "_model_sizes"}
         if isinstance(host_metrics.get("process"), dict):
