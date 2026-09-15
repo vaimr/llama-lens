@@ -101,6 +101,19 @@ function filterByModel(rawList) {
     }
   }
   
+  // Дебаг: выводим в консоль для отладки
+  if (rawList.length > 0) {
+    console.log('[LlamaProcessCard] modelPath:', mp)
+    rawList.forEach(p => {
+      const pid = p.pid || '?'
+      const cmdline = p.cmdline || ''
+      const extracted = extractModelPath(cmdline)
+      const match = extracted.toLowerCase().replace(/\/+$/, '') === mp
+      console.log(`[LlamaProcessCard] PID ${pid} model: "${extracted}" match=${match}`)
+    })
+    console.log('[LlamaProcessCard] matched:', matched.length, 'unmatched:', unmatched.length)
+  }
+  
   // Возвращаем matched, если есть; иначе unmatched (чтобы не показывать пустоту)
   return matched.length ? matched : unmatched
 }
