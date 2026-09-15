@@ -217,8 +217,8 @@ function onModeChange(e) {
   border: 1px solid var(--card-border);
   font-size: 12px; color: var(--cyan);
 }
-.temp-badge.warn .tv { color: var(--amber); }
-.temp-badge.danger .tv { color: var(--red); }
+.temp-badge.warn { color: var(--amber); }
+.temp-badge.danger { color: var(--red); }
 .thermo { opacity: 0.8; }
 .tv { font-weight: 600; }
 .mode-indicator { width: 8px; height: 8px; border-radius: 50%; }
