@@ -58,22 +58,52 @@ import { t } from '../i18n'
 
 const props = defineProps({
   process: { type: [Object, Array], default: () => ({}) },
-  service: { type: Object, default: () => ({}) }
+  service: { type: Object, default: () => ({}) },
+  // Модель текущего llama-server для фильтрации процессов
+  modelPath: { type: String, default: '' }
 })
+
+// Сохраняем состояние раскрытия по PID
+const _openState = ref({}) // { [pid]: { _cmdOpen: bool, _flagOpen: bool } }
+
+function getOpenState(pid) {
+  if (!_openState.value[pid]) {
+    _openState.value[pid] = { _cmdOpen: false, _flagOpen: false }
+  }
+  return _openState.value[pid]
+}
 
 // 支持单进程对象或进程数组（新版 CLI Go → []ProcInfo，旧版 backend SSH → 单对象）
 const processList = computed(() => {
-  const p = props.process
-  if (Array.isArray(p)) return p
-  if (p && p.list) return p.list  // 旧版 SSH 格式兼容
-  if (p && p.found !== undefined) return [p]
-  return []
-})
+  const raw = props.process
+  let list = []
+  if (Array.isArray(raw)) list = raw
+  else if (raw && raw.list) list = raw.list
+  else if (raw && raw.found !== undefined) list = [raw]
 
-// 为每个进程初始化折叠状态
-processList.value.forEach(p => {
-  if (!p._cmdOpen) p._cmdOpen = ref(true)
-  if (!p._flagOpen) p._flagOpen = ref(true)
+  // Фильтруем: если modelPath задан, показываем только процесс с этой моделью
+  if (props.modelPath) {
+    list = list.filter(p => {
+      const cmd = (p.cmdline || '').toLowerCase()
+      const mp = props.modelPath.toLowerCase()
+      // Проверяем --model или -m параметр
+      const m = cmd.match(/(?:--model\s+|-m\s+)(\S+)/i)
+      if (!m) return false
+      return m[1].toLowerCase() === mp
+    })
+    // Если ни один процесс не совпал — показываем все с меткой "non-match"
+    if (!list.length) list = [] // можно раскомментировать для отладки: list = raw.list
+  }
+
+  // Восстанавливаем состояние раскрытия по PID
+  for (const p of list) {
+    if (p.pid != null) {
+      const s = getOpenState(p.pid)
+      if (p._cmdOpen === undefined) p._cmdOpen = s._cmdOpen
+      if (p._flagOpen === undefined) p._flagOpen = s._flagOpen
+    }
+  }
+  return list
 })
 
 const found = computed(() => processList.value.length > 0)

@@ -118,7 +118,7 @@
           <div class="section-title">{{ t('hostDetail.processes') }}</div>
           <template v-if="sshOk">
             <div class="proc-grid">
-              <LlamaProcessCard :process="process" :service="service" />
+              <LlamaProcessCard :process="process" :service="service" :model-path="modelPath" />
               <div class="proc-side">
                 <TopProcessTable :rows="topCpu" mode="cpu" />
                 <TopProcessTable :rows="topMem" mode="mem" />
@@ -208,6 +208,7 @@ watch(hostSpeed, (v) => { if (v !== null) globalSpeed.value = v }, { immediate: 
 const model = computed(() => llama.value.model || {})
 const modelName = computed(() => (model.value.name || model.value.path || '').split('/').pop())
 const modelTitle = computed(() => model.value.name || model.value.path || '')
+const modelPath = computed(() => model.value.path || '')
 const offlineNote = computed(() =>
   snap.value && !llamaOnline.value ? `${t('hostDetail.no_data_ssh')} ${fmtClock(snap.value.ts)}` : ''
 )
