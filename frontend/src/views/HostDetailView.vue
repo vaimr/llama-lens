@@ -236,7 +236,7 @@ const currentGpuTemp = computed(() => {
   const temp = g[0].temp_c
   return temp === null || temp === undefined ? null : temp
 })
-const fmtCtxNum = (v) => fmtNum(v, 0)
+const ctxUsedVal = computed(() => {
   const u = ctx.value.used
   return u === null || u === undefined ? null : u
 })
