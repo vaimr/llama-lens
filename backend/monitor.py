@@ -130,21 +130,22 @@ class HostMonitor:
             self._flags = parse_cmdline(cmdline)
         flags = self._flags
         
-        # 从 _mmproj_paths 获取 per-pid mmproj（新版多进程）
-        # 匹配当前 model.path 找到对应的 mmproj
-        mmproj_paths = hm.get("_mmproj_paths") or {}
+        # 从 _model_paths 和 _mmproj_paths 获取 per-pid 信息
+        # _model_paths: {pid: model_path}
+        # _mmproj_paths: {pid: mmproj_path}
+        model_paths = hm.get("_model_paths") or {}  # pid -> model path
+        mmproj_paths = hm.get("_mmproj_paths") or {}  # pid -> mmproj path
         model_path = model.get("path", "")
-        if model_path and model_path in mmproj_paths.values():
-            # 找到匹配的 pid
-            for pid, mp in mmproj_paths.items():
+        
+        # 通过 model.path 匹配 PID，然后取该 PID 的 mmproj
+        if model_path:
+            matched_pid = None
+            for pid, mp in model_paths.items():
                 if mp == model_path:
-                    model["mmproj_path"] = mp
+                    matched_pid = pid
                     break
-        elif mmproj_paths:
-            # 如果没有匹配，取第一个进程的 mmproj
-            first_mmproj = next(iter(mmproj_paths.values()), None)
-            if first_mmproj:
-                model["mmproj_path"] = first_mmproj
+            if matched_pid and matched_pid in mmproj_paths:
+                model["mmproj_path"] = mmproj_paths[matched_pid]
         
         sizes = hm.get("_model_sizes") or {}
         if model.get("path") and model.get("path") in sizes:
