@@ -78,9 +78,11 @@ function toggleOpen(pid, key) {
   s[key] = !s[key]
 }
 
-function extractModelPath(cmdline) {
-  // Извлекаем путь модели из --model или -m
-  const m = (cmdline || '').match(/(?:--model\s+|-m\s+)(\S+)/i)
+function extractModelPath(p) {
+  // Сначала используем model_path от бэкенда (надёжнее, чем парсить cmdline)
+  if (p.model_path) return p.model_path
+  // Фоллбэк: извлекаем из cmdline
+  const m = (p.cmdline || '').match(/(?:--model\s+|-m\s+)(\S+)/i)
   return m ? m[1] : ''
 }
 
@@ -93,25 +95,12 @@ function filterByModel(rawList) {
   const unmatched = []
   
   for (const p of rawList) {
-    const pmp = extractModelPath(p.cmdline).toLowerCase().replace(/\/+$/, '')
+    const pmp = extractModelPath(p).toLowerCase().replace(/\/+$/, '')
     if (pmp && pmp === mp) {
       matched.push(p)
     } else if (pmp) {
       unmatched.push(p)
     }
-  }
-  
-  // Дебаг: выводим в консоль для отладки
-  if (rawList.length > 0) {
-    console.log('[LlamaProcessCard] modelPath:', mp)
-    rawList.forEach(p => {
-      const pid = p.pid || '?'
-      const cmdline = p.cmdline || ''
-      const extracted = extractModelPath(cmdline)
-      const match = extracted.toLowerCase().replace(/\/+$/, '') === mp
-      console.log(`[LlamaProcessCard] PID ${pid} model: "${extracted}" match=${match}`)
-    })
-    console.log('[LlamaProcessCard] matched:', matched.length, 'unmatched:', unmatched.length)
   }
   
   // Возвращаем matched, если есть; иначе unmatched (чтобы не показывать пустоту)
