@@ -158,9 +158,16 @@ class HostMonitor:
 
         # Обогащаем process list model_path для каждого процесса (по pid)
         model_paths = hm.get("_model_paths") or {}
-        process_data = host_metrics.get("process")
-        if isinstance(process_data, list) and model_paths:
-            for p in process_data:
+        process_raw = hm.get("process")
+        if isinstance(process_raw, dict):
+            process_list = process_raw.get("list", [])
+        elif isinstance(process_raw, list):
+            process_list = process_raw
+        else:
+            process_list = []
+        
+        if process_list and model_paths:
+            for p in process_list:
                 pid = p.get("pid")
                 # pid может быть int или str (зависит от serialisation), проверяем оба
                 if pid:
