@@ -26,17 +26,17 @@
           <span class="k">Tasks</span><span class="v">{{ service.tasks || '—' }}</span>
         </div>
 
-        <div class="collapse-head" :class="{ open: p._cmdOpen }" @click="p._cmdOpen = !p._cmdOpen">
+        <div class="collapse-head" :class="{ open: _state(p.pid)?._cmdOpen }" @click="toggleOpen(p.pid, '_cmdOpen')">
           <span class="arrow">▸</span> {{ t('llamaProcess.full_command_line') }}
         </div>
-        <div class="collapse-body" :class="{ open: p._cmdOpen }">
+        <div class="collapse-body" :class="{ open: _state(p.pid)?._cmdOpen }">
           <pre class="cmdline mono">{{ p.cmdline || '—' }}</pre>
         </div>
 
-        <div v-if="flagRows(p).length" class="collapse-head" :class="{ open: p._flagOpen }" @click="p._flagOpen = !p._flagOpen">
+        <div v-if="flagRows(p).length" class="collapse-head" :class="{ open: _state(p.pid)?._flagOpen }" @click="toggleOpen(p.pid, '_flagOpen')">
           <span class="arrow">▸</span> {{ t('llamaProcess.params_table') }}（{{ flagRows(p).length }}）
         </div>
-        <div class="collapse-body" :class="{ open: p._flagOpen }">
+        <div class="collapse-body" :class="{ open: _state(p.pid)?._flagOpen }">
           <div class="flags">
             <div v-for="[k, v] in flagRows(p)" :key="k" class="flag">
               <span class="fk mono">{{ k }}</span>
@@ -63,14 +63,46 @@ const props = defineProps({
   modelPath: { type: String, default: '' }
 })
 
-// Сохраняем состояние раскрытия по PID
+// Состояние раскрытия хранится отдельно по PID, не привязано к объектам
 const _openState = ref({}) // { [pid]: { _cmdOpen: bool, _flagOpen: bool } }
 
-function getOpenState(pid) {
-  if (!_openState.value[pid]) {
+function _state(pid) {
+  if (!(_openState.value[pid])) {
     _openState.value[pid] = { _cmdOpen: false, _flagOpen: false }
   }
   return _openState.value[pid]
+}
+
+function toggleOpen(pid, key) {
+  const s = _state(pid)
+  s[key] = !s[key]
+}
+
+function extractModelPath(cmdline) {
+  // Извлекаем путь модели из --model или -m
+  const m = (cmdline || '').match(/(?:--model\s+|-m\s+)(\S+)/i)
+  return m ? m[1] : ''
+}
+
+// Фильтруем процессы по modelPath, если задан
+function filterByModel(rawList) {
+  if (!props.modelPath || !rawList.length) return rawList
+  
+  const mp = props.modelPath.toLowerCase().replace(/\/+$/, '')
+  const matched = []
+  const unmatched = []
+  
+  for (const p of rawList) {
+    const pmp = extractModelPath(p.cmdline).toLowerCase().replace(/\/+$/, '')
+    if (pmp && pmp === mp) {
+      matched.push(p)
+    } else if (pmp) {
+      unmatched.push(p)
+    }
+  }
+  
+  // Возвращаем matched, если есть; иначе unmatched (чтобы не показывать пустоту)
+  return matched.length ? matched : unmatched
 }
 
 // 支持单进程对象或进程数组（新版 CLI Go → []ProcInfo，旧版 backend SSH → 单对象）
@@ -80,30 +112,8 @@ const processList = computed(() => {
   if (Array.isArray(raw)) list = raw
   else if (raw && raw.list) list = raw.list
   else if (raw && raw.found !== undefined) list = [raw]
-
-  // Фильтруем: если modelPath задан, показываем только процесс с этой моделью
-  if (props.modelPath) {
-    list = list.filter(p => {
-      const cmd = (p.cmdline || '').toLowerCase()
-      const mp = props.modelPath.toLowerCase()
-      // Проверяем --model или -m параметр
-      const m = cmd.match(/(?:--model\s+|-m\s+)(\S+)/i)
-      if (!m) return false
-      return m[1].toLowerCase() === mp
-    })
-    // Если ни один процесс не совпал — показываем все с меткой "non-match"
-    if (!list.length) list = [] // можно раскомментировать для отладки: list = raw.list
-  }
-
-  // Восстанавливаем состояние раскрытия по PID
-  for (const p of list) {
-    if (p.pid != null) {
-      const s = getOpenState(p.pid)
-      if (p._cmdOpen === undefined) p._cmdOpen = s._cmdOpen
-      if (p._flagOpen === undefined) p._flagOpen = s._flagOpen
-    }
-  }
-  return list
+  
+  return filterByModel(list)
 })
 
 const found = computed(() => processList.value.length > 0)
