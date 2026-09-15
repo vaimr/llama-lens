@@ -74,22 +74,32 @@ systemctl show {systemd_unit} -p Description,ActiveState,SubState,ExecMainStartT
 echo ==MODELS==
 # Собираем модель и mmproj для ВСЕХ llama-server процессов
 for pid in $(pgrep -x "{process_name}"); do
-  cmdline=$(tr '\0' '\n' < /proc/$pid/cmdline)
+  # Читаем cmdline как единую строку с разделителем пробел
+  cmdline_raw=$(tr '\0' ' ' < /proc/$pid/cmdline)
+  
+  # Извлекаем model path (ищем --model или -m и берём следующее слово)
   model=""
   mmproj=""
-  while IFS= read -r arg; do
-    if [ "$arg" = "--model" ] || [ "$arg" = "-m" ]; then
-      shift_count=1
-    elif [ "$arg" = "--mmproj" ]; then
-      if [ -n "$model" ]; then
-        echo "MM:$pid:$model"
-        model=""
-      fi
-    fi
-  done <<< "$cmdline"
-  # 最后尝试从 --model 参数后的值获取
-  model=$(tr '\0' ' ' < /proc/$pid/cmdline | grep -oP '(?<=--model\s)\S+|(?<=-m\s)\S+' | head -1)
-  mmproj=$(tr '\0' ' ' < /proc/$pid/cmdline | grep -oP '(?<=--mmproj\s)\S+' | head -1)
+  
+  # Используем awk для надёжного парсинга без Perl regex
+  model=$(echo "$cmdline_raw" | awk '{
+    for (i=1; i<=NF; i++) {
+      if ($i == "--model" || $i == "-m") {
+        print $(i+1)
+        exit
+      }
+    }
+  }')
+  
+  mmproj=$(echo "$cmdline_raw" | awk '{
+    for (i=1; i<=NF; i++) {
+      if ($i == "--mmproj") {
+        print $(i+1)
+        exit
+      }
+    }
+  }')
+  
   if [ -n "$model" ]; then
     echo "MODEL:$pid:$model"
   fi
