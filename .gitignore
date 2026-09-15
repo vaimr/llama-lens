@@ -22,3 +22,6 @@ cli/dist/
 
 # 离线部署包（docker save 产物，不入库）
 *.tgz
+
+# local example config (canonical: config/hosts.yaml, template: config/hosts.example.yaml)
+/hosts.yaml
