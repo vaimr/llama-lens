@@ -48,10 +48,10 @@ df -B1 --output=source,target,size,used,avail,pcent {df_mounts}
 echo ==PROC==
 # Собираем ВСЕ llama-server процессы (не только первый)
 for pid in $(pgrep -x "{process_name}"); do
-  IFS=$(awk '{print $14, $15, $23}' /proc/$pid/stat)
-  VmRSS=$(grep '^VmRSS:' /proc/$pid/status | awk '{print $2}')
-  VmSize=$(grep '^VmSize:' /proc/$pid/status | awk '{print $2}')
-  Threads=$(grep '^Threads:' /proc/$pid/status | awk '{print $2}')
+  IFS=$(awk '{{print $14, $15, $23}}' /proc/$pid/stat)
+  VmRSS=$(grep '^VmRSS:' /proc/$pid/status | awk '{{print $2}}')
+  VmSize=$(grep '^VmSize:' /proc/$pid/status | awk '{{print $2}}')
+  Threads=$(grep '^Threads:' /proc/$pid/status | awk '{{print $2}}')
   ps_out=$(ps -o pcpu=,pmem=,etime= -p $pid)
   cmdline=$(tr '\0' ' ' < /proc/$pid/cmdline | tr '\n' ' ')
   echo "PROC_PID:$pid"
