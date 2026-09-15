@@ -46,24 +46,23 @@ awk '$3 ~ /^(sd|vd|nvme)/ && $3 !~ /p[0-9]+$/ && $3 !~ /^[sv]d[a-z]+[0-9]+$/ {{p
 echo ==DF==
 df -B1 --output=source,target,size,used,avail,pcent {df_mounts}
 echo ==PROC==
-PID=$(pgrep -x "{process_name}" | head -1)
-if [ -z "$PID" ]; then
-  # comm 被内核截断到 15 字符：长进程名回退 cmdline argv[0] basename 匹配
-  # （不用 basename 命令：argv[0] 可能以 - 开头[如 -zsh]会被当选项解析）
-  for d in /proc/[0-9]*; do
-    a0=$(tr '\0' '\n' < "$d/cmdline" | head -n 1)
-    [ -n "$a0" ] || continue
-    case "$a0" in */*) a0=${{a0##*/}} ;; esac
-    [ "$a0" = "{process_name}" ] && PID=${{d##*/}} && break
-  done
-fi
-if [ -n "$PID" ]; then
-  echo P:$PID
-  awk '{{print $14, $15, $23}}' /proc/$PID/stat
-  grep -E '^(VmRSS|VmSize|Threads)' /proc/$PID/status
-  ps -o pcpu=,pmem=,etime= -p $PID
-  tr '\0' ' ' < /proc/$PID/cmdline; echo
-fi
+# Собираем ВСЕ llama-server процессы (не только первый)
+for pid in $(pgrep -x "{process_name}"); do
+  IFS=$(awk '{print $14, $15, $23}' /proc/$pid/stat)
+  VmRSS=$(grep '^VmRSS:' /proc/$pid/status | awk '{print $2}')
+  VmSize=$(grep '^VmSize:' /proc/$pid/status | awk '{print $2}')
+  Threads=$(grep '^Threads:' /proc/$pid/status | awk '{print $2}')
+  ps_out=$(ps -o pcpu=,pmem=,etime= -p $pid)
+  cmdline=$(tr '\0' ' ' < /proc/$pid/cmdline | tr '\n' ' ')
+  echo "PROC_PID:$pid"
+  echo "PROC_STATS:$IFS"
+  echo "PROC_RSS:$VmRSS"
+  echo "PROC_VSZ:$VmSize"
+  echo "PROC_THREADS:$Threads"
+  echo "PROC_PS:$ps_out"
+  echo "PROC_CMDLINE:$cmdline"
+done
+echo "PROC_END:"
 echo ==PS==
 ps -eo pid,comm,pcpu,pmem,rss --no-headers
 echo ==PSTICKS==
@@ -73,9 +72,31 @@ ls /proc | grep -c '^[0-9]'
 echo ==SERVICE==
 systemctl show {systemd_unit} -p Description,ActiveState,SubState,ExecMainStartTimestamp,CPUUsageNSec,MemoryCurrent,MemoryPeak,NTasks
 echo ==MODELS==
-if [ -n "$PID" ]; then
-  tr '\0' '\n' < /proc/$PID/cmdline | awk 'p=="--model"||p=="-m"||p=="--mmproj"{{print; p=""; next}}{{p=$0}}' | xargs -r -d '\n' ls -l
-fi
+# Собираем модель и mmproj для ВСЕХ llama-server процессов
+for pid in $(pgrep -x "{process_name}"); do
+  cmdline=$(tr '\0' '\n' < /proc/$pid/cmdline)
+  model=""
+  mmproj=""
+  while IFS= read -r arg; do
+    if [ "$arg" = "--model" ] || [ "$arg" = "-m" ]; then
+      shift_count=1
+    elif [ "$arg" = "--mmproj" ]; then
+      if [ -n "$model" ]; then
+        echo "MM:$pid:$model"
+        model=""
+      fi
+    fi
+  done <<< "$cmdline"
+  # 最后尝试从 --model 参数后的值获取
+  model=$(tr '\0' ' ' < /proc/$pid/cmdline | grep -oP '(?<=--model\s)\S+|(?<=-m\s)\S+' | head -1)
+  mmproj=$(tr '\0' ' ' < /proc/$pid/cmdline | grep -oP '(?<=--mmproj\s)\S+' | head -1)
+  if [ -n "$model" ]; then
+    echo "MODEL:$pid:$model"
+  fi
+  if [ -n "$mmproj" ]; then
+    echo "MMPROJ:$pid:$mmproj"
+  fi
+done
 echo ==END==
 """
 
@@ -699,46 +720,79 @@ def parse_df(section: str) -> List[Dict[str, Any]]:
 
 
 def parse_proc(section: str, diff: DiffEngine, ts: float, host_id: str) -> Dict[str, Any]:
-    proc = {"found": False}
+    """解析 ==PROC== 段，返回所有 llama-server 进程列表。
+
+    新版格式：
+      PROC_PID:12345
+      PROC_STATS:utime stime vsize
+      PROC_RSS:rss_kb
+      PROC_VSZ:vsz_kb
+      PROC_THREADS:n
+      PROC_PS:pcpu pmem etime
+      PROC_CMDLINE:full cmdline
+      PROC_PID:67890
+      ...
+    """
+    procs = []
     lines = [l for l in section.splitlines() if l.strip()]
-    if not lines or not lines[0].startswith("P:"):
-        return proc
-    pid = _i(lines[0][2:])
-    proc["found"] = True
-    proc["pid"] = pid
-    idx = 1
-    # utime stime vsize
-    if idx < len(lines):
-        f = lines[idx].split()
-        if len(f) >= 3:
-            utime = _i(f[0], 0)
-            stime = _i(f[1], 0)
-            vsize = _i(f[2], 0)
-            proc["vsz_mb"] = vsize // (1024 * 1024)
-            proc["cpu_pct_realtime"] = diff.process_cpu_pct(
-                "proc:%s:%s" % (host_id, pid), ts, utime + stime)
+    if not lines or not lines[0].startswith("PROC_PID:"):
+        # 旧格式兼容：单进程 P:PID
+        if not lines or not lines[0].startswith("P:"):
+            return {"found": False, "list": []}
+        pid = _i(lines[0][2:])
+        proc = _parse_single_proc(pid, lines[1:], diff, ts, host_id)
+        return {"found": True, "list": [proc]}
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("PROC_PID:"):
+            pid = _i(line[9:])
+            proc_lines = []
+            i += 1
+            # 收集下一条 PROC_PID: 或 PROC_END: 之前的行
+            while i < len(lines):
+                if lines[i].startswith("PROC_PID:") or (lines[i].startswith("PROC_END:") and not lines[i].startswith("PROC_PID:")):
+                    break
+                proc_lines.append(lines[i])
+                i += 1
+            proc = _parse_single_proc(pid, proc_lines, diff, ts, host_id)
+            procs.append(proc)
+        else:
+            i += 1
+    return {"found": len(procs) > 0, "list": procs}
+
+
+def _parse_single_proc(pid: int, proc_lines: List[str], diff: DiffEngine, ts: float, host_id: str) -> Dict[str, Any]:
+    """解析单个进程的 PROC_* 行。"""
+    proc = {"found": True, "pid": pid}
+    idx = 0
+    while idx < len(proc_lines):
+        line = proc_lines[idx]
+        if line.startswith("PROC_STATS:"):
+            f = line[11:].split()
+            if len(f) >= 3:
+                utime = _i(f[0], 0)
+                stime = _i(f[1], 0)
+                vsize = _i(f[2], 0)
+                proc["vsz_mb"] = vsize // (1024 * 1024)
+                proc["cpu_pct_realtime"] = diff.process_cpu_pct(
+                    "proc:%s:%s" % (host_id, pid), ts, utime + stime)
+        elif line.startswith("PROC_RSS:"):
+            proc["rss_mb"] = _i(line[11:], 0) // 1024
+        elif line.startswith("PROC_VSZ:"):
+            proc["vsz_mb"] = _i(line[11:], 0) // (1024 * 1024)
+        elif line.startswith("PROC_THREADS:"):
+            proc["threads"] = _i(line[15:], 0)
+        elif line.startswith("PROC_PS:"):
+            f = line[10:].split()
+            if len(f) >= 3:
+                proc["cpu_pct_lifetime"] = _f(f[0])
+                proc["mem_pct"] = _f(f[1])
+                proc["elapsed"] = f[2]
+        elif line.startswith("PROC_CMDLINE:"):
+            proc["cmdline"] = line[13:].strip()
         idx += 1
-    # VmRSS / VmSize / Threads
-    while idx < len(lines) and lines[idx].startswith(("VmRSS", "VmSize", "Threads")):
-        l = lines[idx]
-        if l.startswith("VmRSS"):
-            proc["rss_mb"] = _i(l.split()[1], 0) // 1024
-        elif l.startswith("VmSize"):
-            proc["vsz_mb"] = _i(l.split()[1], 0) // 1024
-        elif l.startswith("Threads"):
-            proc["threads"] = _i(l.split()[1], 0)
-        idx += 1
-    # ps pcpu pmem etime
-    if idx < len(lines):
-        f = lines[idx].split()
-        if len(f) >= 3:
-            proc["cpu_pct_lifetime"] = _f(f[0])
-            proc["mem_pct"] = _f(f[1])
-            proc["elapsed"] = f[2]
-        idx += 1
-    # cmdline（剩余行合并）
-    if idx < len(lines):
-        proc["cmdline"] = " ".join(l.strip() for l in lines[idx:]).strip()
     return proc
 
 
@@ -810,17 +864,36 @@ def parse_service(section: str) -> Dict[str, Any]:
     return svc
 
 
-def parse_models(section: str) -> Dict[str, int]:
-    """返回 {path: size_bytes}。"""
-    result = {}
+def parse_models(section: str) -> Dict[str, Any]:
+    """返回 {path: size_bytes} 和 per-pid model/mmproj 信息。
+
+    新版格式：
+      MODEL:pid:model_path
+      MMPROJ:pid:mmproj_path
+    旧格式（ls -l 输出）：
+      -rw-r--r-- 1 user group 12345678 /path/to/model
+    """
+    result = {"path_sizes": {}, "models": {}, "mmproj": {}}
     for line in section.splitlines():
         line = line.strip()
-        if not line or not line.startswith("-"):
+        if not line:
             continue
-        f = line.split()
-        if len(f) < 5:
-            continue
-        result[f[-1]] = _i(f[4], 0)
+        # 新版多进程格式
+        if line.startswith("MODEL:"):
+            parts = line.split(":", 2)
+            if len(parts) == 3:
+                pid = int(parts[1])
+                result["models"][pid] = parts[2]
+        elif line.startswith("MMPROJ:"):
+            parts = line.split(":", 2)
+            if len(parts) == 3:
+                pid = int(parts[1])
+                result["mmproj"][pid] = parts[2]
+        # 旧格式 ls -l 输出
+        elif line.startswith("-"):
+            f = line.split()
+            if len(f) >= 5:
+                result["path_sizes"][f[-1]] = _i(f[4], 0)
     return result
 
 
@@ -1001,7 +1074,7 @@ class SshPoller:
             })
         m["net"] = {"ifaces": net_out}
 
-        # 进程
+        # 进程（多进程支持）
         m["process"] = parse_proc(sec.get("PROC", ""), self.diff, ts, self.host_id)
 
         # Top 进程（实时 CPU% = Δ(utime+stime)/Δt；Top CPU 按实时排序，Top 内存按 RSS 排序）
@@ -1037,8 +1110,11 @@ class SshPoller:
         m["service"] = parse_service(sec.get("SERVICE", ""))
         m["service"]["unit"] = self.cfg.systemd_unit
 
-        # 模型文件体积
-        m["_model_sizes"] = parse_models(sec.get("MODELS", ""))
+        # 模型文件体积 + per-pid model/mmproj
+        model_info = parse_models(sec.get("MODELS", ""))
+        m["_model_sizes"] = model_info.get("path_sizes", {})
+        m["_model_paths"] = model_info.get("models", {})
+        m["_mmproj_paths"] = model_info.get("mmproj", {})
 
         self._push_ring(ts)
 

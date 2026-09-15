@@ -47,7 +47,23 @@ export default {
   eventFeed: {
     title: 'Event Stream',
     no_events: 'No events yet',
-    new_events: 'New Events'
+    new_events: 'New Events',
+    // Event message templates (filled with {id}, {n_tokens}, etc.)
+    ev_llama_up: 'llama online',
+    ev_llama_up_model: 'llama online · Model: {model}',
+    ev_llama_recovery: 'llama recovered · Model: {model}',
+    ev_llama_down: 'llama offline',
+    ev_ssh_up: 'SSH reconnected',
+    ev_ssh_down: 'SSH disconnected',
+    ev_task_start: 'Task #{id} started',
+    ev_task_start_prompt: 'Task #{id} started (prompt {n} tokens)',
+    ev_task_end: 'Task #{id} ended',
+    ev_task_end_stats: 'Task #{id} ended: {stats}',
+    ev_model_change: 'Model changed: {from} → {to}',
+    ev_boot: 'llama started: {info}',
+    ev_alert_warn: '{name} {op} {threshold} ({tag})',
+    ev_alert_recovery: '{name} back to normal',
+    ev_gpu_alert_warn: 'GPU{idx} {kind} {op} {threshold} ({tag})',
   },
   gpuPanel: {
     utilization: 'Utilization',

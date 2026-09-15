@@ -47,7 +47,23 @@ export default {
   eventFeed: {
     title: 'Поток событий',
     no_events: 'Событий пока нет',
-    new_events: 'Новые события'
+    new_events: 'Новые события',
+    // Шаблоны сообщений событий (подставляются {id}, {n_tokens} и т.д.)
+    ev_llama_up: 'llama онлайн',
+    ev_llama_up_model: 'llama онлайн · Модель: {model}',
+    ev_llama_recovery: 'llama восстановлен · Модель: {model}',
+    ev_llama_down: 'llama офлайн',
+    ev_ssh_up: 'SSH повторно подключён',
+    ev_ssh_down: 'SSH отключён',
+    ev_task_start: 'Задача #{id} начата',
+    ev_task_start_prompt: 'Задача #{id} начата (prompt {n} tokens)',
+    ev_task_end: 'Задача #{id} завершена',
+    ev_task_end_stats: 'Задача #{id} завершена: {stats}',
+    ev_model_change: 'Модель изменена: {from} → {to}',
+    ev_boot: 'llama запущен: {info}',
+    ev_alert_warn: '{name} {op} {threshold} ({tag})',
+    ev_alert_recovery: '{name} вернулся в норму',
+    ev_gpu_alert_warn: 'GPU{idx} {kind} {op} {threshold} ({tag})',
   },
   gpuPanel: {
     utilization: 'Загрузка',

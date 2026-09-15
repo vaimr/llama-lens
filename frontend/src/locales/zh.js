@@ -47,7 +47,23 @@ export default {
   eventFeed: {
     title: '事件流',
     no_events: '暂无事件',
-    new_events: '新事件'
+    new_events: '新事件',
+    // 事件消息模板（填充 {id}, {n_tokens} 等）
+    ev_llama_up: 'llama 在线',
+    ev_llama_up_model: 'llama 在线 · 模型: {model}',
+    ev_llama_recovery: 'llama 恢复 · 模型: {model}',
+    ev_llama_down: 'llama 离线',
+    ev_ssh_up: 'SSH 重新连接',
+    ev_ssh_down: 'SSH 断开',
+    ev_task_start: '任务 #{id} 开始',
+    ev_task_start_prompt: '任务 #{id} 开始 (prompt {n} tokens)',
+    ev_task_end: '任务 #{id} 结束',
+    ev_task_end_stats: '任务 #{id} 结束: {stats}',
+    ev_model_change: '模型变更: {from} → {to}',
+    ev_boot: 'llama 启动: {info}',
+    ev_alert_warn: '{name} {op} {threshold} ({tag})',
+    ev_alert_recovery: '{name} 恢复正常',
+    ev_gpu_alert_warn: 'GPU{idx} {kind} {op} {threshold} ({tag})',
   },
   gpuPanel: {
     utilization: '利用率',

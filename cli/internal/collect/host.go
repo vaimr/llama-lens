@@ -437,12 +437,21 @@ func readDF(mounts []string) []model.Mount {
 
 // ---------- llama-server 进程 ----------
 
-func (h *HostCollector) readLlamaProcess(now float64, memTotalMB int) *model.ProcInfo {
-	pid := findPID(h.cfg.ProcessName)
-	if pid <= 0 {
-		return &model.ProcInfo{Found: false, Name: h.cfg.ProcessName}
+func (h *HostCollector) readLlamaProcess(now float64, memTotalMB int) []model.ProcInfo {
+	pids := findPIDs(h.cfg.ProcessName)
+	if len(pids) == 0 {
+		return nil
 	}
-	p := &model.ProcInfo{Found: true, PID: pid, Name: h.cfg.ProcessName}
+	procs := make([]model.ProcInfo, 0, len(pids))
+	for _, pid := range pids {
+		p := h.readOneLlamaProcess(pid, now, memTotalMB)
+		procs = append(procs, p)
+	}
+	return procs
+}
+
+func (h *HostCollector) readOneLlamaProcess(pid int, now float64, memTotalMB int) model.ProcInfo {
+	p := model.ProcInfo{Found: true, PID: pid, Name: h.cfg.ProcessName}
 
 	// /proc/<pid>/stat → utime stime vsize starttime（生命周期 CPU%/运行时长由 /proc 计算，免 ps 子进程）
 	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
@@ -491,17 +500,19 @@ func (h *HostCollector) readLlamaProcess(now float64, memTotalMB int) *model.Pro
 	return p
 }
 
-func findPID(name string) int {
-	return findPIDIn(name, "/proc")
+func findPIDs(name string) []int {
+	return findPIDsIn(name, "/proc")
 }
 
-// findPIDIn 先 comm 精确匹配（快路径）；失败再回退 cmdline argv[0] basename 匹配。
+// findPIDsIn 先 comm 精确匹配（快路径）；失败再回退 cmdline argv[0] basename 匹配。
 // 内核把 comm 截断到 15 字符，长进程名（如 llama-cpp-turboquant）只能靠 cmdline 匹配全名。
-func findPIDIn(name, procDir string) int {
+// 返回所有匹配的 PID（不止第一个）。
+func findPIDsIn(name, procDir string) []int {
 	entries, err := os.ReadDir(procDir)
 	if err != nil {
-		return 0
+		return nil
 	}
+	var pids []int
 	for _, e := range entries {
 		if !isProcEntry(e) {
 			continue
@@ -512,9 +523,13 @@ func findPIDIn(name, procDir string) int {
 		}
 		if strings.TrimSpace(string(b)) == name {
 			pid, _ := strconv.Atoi(e.Name())
-			return pid
+			pids = append(pids, pid)
 		}
 	}
+	if len(pids) > 0 {
+		return pids
+	}
+	// 回退：cmdline argv[0] basename 匹配
 	for _, e := range entries {
 		if !isProcEntry(e) {
 			continue
@@ -526,10 +541,19 @@ func findPIDIn(name, procDir string) int {
 		argv0 := strings.SplitN(string(b), "\x00", 2)[0]
 		if filepath.Base(argv0) == name {
 			pid, _ := strconv.Atoi(e.Name())
-			return pid
+			pids = append(pids, pid)
 		}
 	}
-	return 0
+	return pids
+}
+
+// findPID 保留向后兼容（返回第一个 PID）。
+func findPID(name string) int {
+	pids := findPIDs(name)
+	if len(pids) == 0 {
+		return 0
+	}
+	return pids[0]
 }
 
 func isProcEntry(e os.DirEntry) bool {

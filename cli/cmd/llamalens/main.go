@@ -123,8 +123,10 @@ func printSnapshot(s *model.Snapshot) {
 		fmt.Printf("CPU %.1f%%  负载 %.2f %.2f %.2f  内存 %d/%d MB\n",
 			*cpu, s.Host.CPU.Load[0], s.Host.CPU.Load[1], s.Host.CPU.Load[2], s.Host.Mem.UsedMB, s.Host.Mem.TotalMB)
 	}
-	if p := s.Host.Process; p != nil && p.Found {
-		fmt.Printf("进程: PID %d  运行 %s\n", p.PID, orDash(p.Elapsed))
+	if s.Host.Process != nil && len(s.Host.Process) > 0 {
+		for _, p := range s.Host.Process {
+			fmt.Printf("进程: PID %d  运行 %s\n", p.PID, orDash(p.Elapsed))
+		}
 	}
 	if len(s.Events) > 0 {
 		fmt.Println("最近事件:")

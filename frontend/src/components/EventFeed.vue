@@ -13,7 +13,7 @@
       >
         <span class="ts">{{ fmtTimeShort(e.ts) }}</span>
         <span class="lv" :class="'lv-' + e.level">[{{ e.level.toUpperCase() }}]</span>
-        <span class="msg">{{ e.msg }}</span>
+        <span class="msg">{{ formatEvent(e) }}</span>
       </div>
       <div v-if="!events.length" class="placeholder"><span class="icon">⌁</span>{{ t('eventFeed.no_events') }}</div>
     </div>
@@ -24,7 +24,7 @@
 <script setup>
 import { ref, watch, nextTick, computed } from 'vue'
 import { fmtTimeShort } from '../utils'
-import { t } from '../i18n'
+import { t, formatEvent } from '../i18n'
 
 const props = defineProps({
   events: { type: Array, default: () => [] },

@@ -255,7 +255,7 @@ type HostMetrics struct {
 	Mem       MemInfo
 	Disk      DiskInfo
 	Net       NetInfo
-	Process   *ProcInfo
+	Process   []ProcInfo
 	Service   ServiceInfo
 	GPUs      []GPU
 	TopCPU    []TopProc

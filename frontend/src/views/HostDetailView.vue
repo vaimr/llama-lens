@@ -66,6 +66,16 @@
               :zones="mtpZones"
               :zone-colors="mtpZoneColors"
             />
+            <GaugeCard
+              v-if="currentGpuTemp !== null"
+              :title="t('hostDetail.gpu_temp')"
+              :value="currentGpuTemp"
+              unit="°C"
+              :level="gpuTempLevel"
+              :zones="gpuTempZones"
+              :zone-colors="gpuTempZoneColors"
+              :spark="sparkGpuTemp"
+            />
           </div>
         </section>
 
@@ -214,7 +224,42 @@ const offlineNote = computed(() =>
 // ---------------- AI 核心 ----------------
 const ctx = computed(() => (llama.value.log && llama.value.log.context) || {})
 const mtp = computed(() => (llama.value.log && llama.value.log.mtp) || {})
-const flags = computed(() => (hm.value.process && hm.value.process.flags) || {})
+const flags = computed(() => {
+  // Merge flags from all processes (first non-empty takes precedence for spec type)
+  const merged = {}
+  const plist = process.value
+  if (!plist || !plist.length) return merged
+  for (const p of plist) {
+    if (p.flags) {
+      Object.assign(merged, p.flags)
+    }
+  }
+  return merged
+})
+
+// Текущая температура GPU (берём первую GPU, если есть)
+const currentGpuTemp = computed(() => {
+  const g = gpus.value
+  if (!g || !g.length) return null
+  const temp = g[0].temp_c
+  return temp === null || temp === undefined ? null : temp
+})
+const gpuTempLevel = computed(() => {
+  const t = currentGpuTemp.value
+  if (t === null) return ''
+  if (t >= 90) return 'danger'
+  if (t >= 75) return 'warn'
+  return ''
+})
+const gpuTempZones = computed(() => ({ min: 0, max: 100 }))
+const gpuTempZoneColors = computed(() => [
+  { min: 0, max: 65, color: 'cyan' },
+  { min: 65, max: 75, color: 'green' },
+  { min: 75, max: 90, color: 'amber' },
+  { min: 90, max: 100, color: 'red' }
+])
+// Sparkline для температуры (60s)
+const sparkGpuTemp = computed(() => mapTail('gpu_temp_0', (v) => v))
 
 const ctxUsedVal = computed(() => {
   const u = ctx.value.used
@@ -313,7 +358,13 @@ const cpu = computed(() => hm.value.cpu || {})
 const mem = computed(() => hm.value.mem || {})
 const disk = computed(() => hm.value.disk || {})
 const net = computed(() => hm.value.net || {})
-const process = computed(() => hm.value.process || {})
+const process = computed(() => {
+  const p = hm.value.process
+  if (Array.isArray(p)) return p
+  if (p && p.list) return p.list  // SSH 旧版格式
+  if (p && typeof p === 'object') return [p]  // 单对象
+  return []
+})
 const service = computed(() => hm.value.service || {})
 const topCpu = computed(() => (hm.value.top && hm.value.top.cpu) || [])
 const topMem = computed(() => (hm.value.top && hm.value.top.mem) || [])

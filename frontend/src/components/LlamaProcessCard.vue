@@ -6,39 +6,42 @@
     </div>
 
     <template v-if="found">
-      <div class="metrics mono">
-        <div class="m"><span class="v">{{ pid }}</span><span class="k">PID</span></div>
-        <div class="m"><span class="v" :class="cpuLevelClass">{{ cpuRtText }}</span><span class="k">{{ t('llamaProcess.realtime_cpu') }}</span></div>
-        <div class="m"><span class="v">{{ cpuLifeText }}</span><span class="k">{{ t('llamaProcess.cumulative_cpu') }}</span></div>
-        <div class="m"><span class="v">{{ rssText }}</span><span class="k">RSS</span></div>
-        <div class="m"><span class="v">{{ vszText }}</span><span class="k">VSZ</span></div>
-        <div class="m"><span class="v">{{ threads ?? '—' }}</span><span class="k">{{ t('llamaProcess.threads') }}</span></div>
-        <div class="m"><span class="v">{{ elapsed || '—' }}</span><span class="k">{{ t('llamaProcess.uptime') }}</span></div>
-      </div>
+      <div v-for="(p, idx) in processList" :key="p.pid" :class="['proc-card', { multi: processList.length > 1 }]">
+        <div v-if="processList.length > 1" class="proc-label">Process {{ idx + 1 }}</div>
+        <div class="metrics mono">
+          <div class="m"><span class="v">{{ p.pid }}</span><span class="k">PID</span></div>
+          <div class="m"><span class="v" :class="cpuLevelClass(p)">{{ cpuRtText(p) }}</span><span class="k">{{ t('llamaProcess.realtime_cpu') }}</span></div>
+          <div class="m"><span class="v">{{ cpuLifeText(p) }}</span><span class="k">{{ t('llamaProcess.cumulative_cpu') }}</span></div>
+          <div class="m"><span class="v">{{ rssText(p) }}</span><span class="k">RSS</span></div>
+          <div class="m"><span class="v">{{ vszText(p) }}</span><span class="k">VSZ</span></div>
+          <div class="m"><span class="v">{{ threadsVal(p) ?? '—' }}</span><span class="k">{{ t('llamaProcess.threads') }}</span></div>
+          <div class="m"><span class="v">{{ elapsedVal(p) || '—' }}</span><span class="k">{{ t('llamaProcess.uptime') }}</span></div>
+        </div>
 
-      <div v-if="service && service.active" class="service mono">
-        <span class="k">{{ t('llamaProcess.service') }}</span><span class="v">{{ service.unit }} · {{ service.active }}</span>
-        <span class="k">{{ t('llamaProcess.started_at') }}</span><span class="v">{{ service.since || '—' }}</span>
-        <span class="k">{{ t('llamaProcess.cumulative_cpu') }}</span><span class="v">{{ service.cpu_total || '—' }}</span>
-        <span class="k">{{ t('llamaProcess.memory') }}</span><span class="v">{{ service.memory || '—' }}<span v-if="service.memory_peak" class="faint"> ({{ t('llamaProcess.peak') }} {{ service.memory_peak }})</span></span>
-        <span class="k">Tasks</span><span class="v">{{ service.tasks || '—' }}</span>
-      </div>
+        <div v-if="service && service.active" class="service mono">
+          <span class="k">{{ t('llamaProcess.service') }}</span><span class="v">{{ service.unit }} · {{ service.active }}</span>
+          <span class="k">{{ t('llamaProcess.started_at') }}</span><span class="v">{{ service.since || '—' }}</span>
+          <span class="k">{{ t('llamaProcess.cumulative_cpu') }}</span><span class="v">{{ service.cpu_total || '—' }}</span>
+          <span class="k">{{ t('llamaProcess.memory') }}</span><span class="v">{{ service.memory || '—' }}<span v-if="service.memory_peak" class="faint"> ({{ t('llamaProcess.peak') }} {{ service.memory_peak }})</span></span>
+          <span class="k">Tasks</span><span class="v">{{ service.tasks || '—' }}</span>
+        </div>
 
-      <div class="collapse-head" :class="{ open: cmdOpen }" @click="cmdOpen = !cmdOpen">
-        <span class="arrow">▸</span> {{ t('llamaProcess.full_command_line') }}
-      </div>
-      <div class="collapse-body" :class="{ open: cmdOpen }">
-        <pre class="cmdline mono">{{ cmdline || '—' }}</pre>
-      </div>
+        <div class="collapse-head" :class="{ open: p._cmdOpen }" @click="p._cmdOpen = !p._cmdOpen">
+          <span class="arrow">▸</span> {{ t('llamaProcess.full_command_line') }}
+        </div>
+        <div class="collapse-body" :class="{ open: p._cmdOpen }">
+          <pre class="cmdline mono">{{ p.cmdline || '—' }}</pre>
+        </div>
 
-      <div v-if="flagRows.length" class="collapse-head" :class="{ open: flagOpen }" @click="flagOpen = !flagOpen">
-        <span class="arrow">▸</span> {{ t('llamaProcess.params_table') }}（{{ flagRows.length }}）
-      </div>
-      <div class="collapse-body" :class="{ open: flagOpen }">
-        <div class="flags">
-          <div v-for="[k, v] in flagRows" :key="k" class="flag">
-            <span class="fk mono">{{ k }}</span>
-            <span class="fv mono">{{ v }}</span>
+        <div v-if="flagRows(p).length" class="collapse-head" :class="{ open: p._flagOpen }" @click="p._flagOpen = !p._flagOpen">
+          <span class="arrow">▸</span> {{ t('llamaProcess.params_table') }}（{{ flagRows(p).length }}）
+        </div>
+        <div class="collapse-body" :class="{ open: p._flagOpen }">
+          <div class="flags">
+            <div v-for="[k, v] in flagRows(p)" :key="k" class="flag">
+              <span class="fk mono">{{ k }}</span>
+              <span class="fv mono">{{ v }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -49,44 +52,61 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { fmtBytes } from '../utils'
 import { t } from '../i18n'
 
 const props = defineProps({
-  process: { type: Object, default: () => ({}) },
+  process: { type: [Object, Array], default: () => ({}) },
   service: { type: Object, default: () => ({}) }
 })
 
-const cmdOpen = ref(true)
-const flagOpen = ref(true)
+// 支持单进程对象或进程数组（新版 CLI Go → []ProcInfo，旧版 backend SSH → 单对象）
+const processList = computed(() => {
+  const p = props.process
+  if (Array.isArray(p)) return p
+  if (p && p.list) return p.list  // 旧版 SSH 格式兼容
+  if (p && p.found !== undefined) return [p]
+  return []
+})
 
-const found = computed(() => !!props.process.found)
-const pid = computed(() => props.process.pid)
-const cmdline = computed(() => props.process.cmdline)
-const threads = computed(() => props.process.threads)
-const elapsed = computed(() => props.process.elapsed)
+// 为每个进程初始化折叠状态
+processList.value.forEach(p => {
+  if (!p._cmdOpen) p._cmdOpen = ref(true)
+  if (!p._flagOpen) p._flagOpen = ref(true)
+})
 
-const cpuRt = computed(() => props.process.cpu_pct_realtime ?? null)
-const cpuRtText = computed(() => (cpuRt.value === null ? '—' : cpuRt.value.toFixed(1) + '%'))
-const cpuLifeText = computed(() => (props.process.cpu_pct_lifetime === null || props.process.cpu_pct_lifetime === undefined ? '—' : props.process.cpu_pct_lifetime.toFixed(1) + '%'))
-const rssText = computed(() => (props.process.rss_mb ? fmtBytes(props.process.rss_mb * 1024 * 1024) : '—'))
-const vszText = computed(() => (props.process.vsz_mb ? fmtBytes(props.process.vsz_mb * 1024 * 1024) : '—'))
-const cpuLevelClass = computed(() => {
-  const v = cpuRt.value
+const found = computed(() => processList.value.length > 0)
+
+const cpuRtText = (p) => {
+  const v = p.cpu_pct_realtime ?? null
+  return v === null ? '—' : v.toFixed(1) + '%'
+}
+const cpuLifeText = (p) => {
+  const v = p.cpu_pct_lifetime
+  return v === null || v === undefined ? '—' : v.toFixed(1) + '%'
+}
+const rssText = (p) => (p.rss_mb ? fmtBytes(p.rss_mb * 1024 * 1024) : '—')
+const vszText = (p) => (p.vsz_mb ? fmtBytes(p.vsz_mb * 1024 * 1024) : '—')
+const threadsVal = (p) => p.threads
+const elapsedVal = (p) => p.elapsed
+const flagRows = (p) => Object.entries(p.flags || {})
+const cpuLevelClass = (p) => {
+  const v = p.cpu_pct_realtime
   if (v === null) return ''
   if (v >= 900) return 'lv-danger'
   if (v >= 800) return 'lv-warn'
   return ''
-})
-
-const flagRows = computed(() => Object.entries(props.process.flags || {}))
+}
 </script>
 
 <style scoped>
 .proc { padding: 12px 16px; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .panel-title { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
+.proc-card { margin-bottom: 8px; }
+.proc-card.multi { border-left: 3px solid var(--accent); padding-left: 8px; }
+.proc-label { font-size: 10px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 12px; margin-bottom: 10px; }
 .m { display: flex; flex-direction: column; gap: 2px; }
 .m .v { font-size: 16px; font-weight: 700; color: var(--text); }

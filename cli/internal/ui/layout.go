@@ -748,30 +748,31 @@ func modelBody(snap *model.Snapshot) string {
 
 func procBody(snap *model.Snapshot) string {
 	var lines []string
-	p := snap.Host.Process
-	pname := "llama-server"
-	if p != nil && p.Name != "" {
-		pname = p.Name
-	}
-	if p == nil || !p.Found {
-		lines = append(lines, stRed.Render(pname+" 进程未找到"))
+	procs := snap.Host.Process
+	if len(procs) == 0 {
+		lines = append(lines, stRed.Render("llama-server 进程未找到"))
 	} else {
-		lines = append(lines, fmt.Sprintf("%s  PID %d", stBold.Render(snap.Host.Service.Unit), p.PID))
-		cpu := "—"
-		if p.CPUPctRealtime != nil {
-			cpu = pctStr(*p.CPUPctRealtime)
-		}
-		rss := "—"
-		if p.RSSMB != nil {
-			rss = fmt.Sprintf("%.1fGB", float64(*p.RSSMB)/1024)
-		}
-		threads := "—"
-		if p.Threads != nil {
-			threads = fmt.Sprintf("%d", *p.Threads)
-		}
-		lines = append(lines, fmt.Sprintf("CPU %s  内存 %s  线程 %s  运行 %s", cpu, rss, threads, orDash(p.Elapsed)))
-		if s := snap.Host.Service; s.Active != "" {
-			lines = append(lines, "服务 "+s.Active+"  "+orDash(s.Memory))
+		for i, p := range procs {
+			if i > 0 {
+				lines = append(lines, "") // separator between processes
+			}
+			lines = append(lines, fmt.Sprintf("%s  PID %d", stBold.Render(snap.Host.Service.Unit), p.PID))
+			cpu := "—"
+			if p.CPUPctRealtime != nil {
+				cpu = pctStr(*p.CPUPctRealtime)
+			}
+			rss := "—"
+			if p.RSSMB != nil {
+				rss = fmt.Sprintf("%.1fGB", float64(*p.RSSMB)/1024)
+			}
+			threads := "—"
+			if p.Threads != nil {
+				threads = fmt.Sprintf("%d", *p.Threads)
+			}
+			lines = append(lines, fmt.Sprintf("CPU %s  内存 %s  线程 %s  运行 %s", cpu, rss, threads, orDash(p.Elapsed)))
+			if s := snap.Host.Service; s.Active != "" {
+				lines = append(lines, "服务 "+s.Active+"  "+orDash(s.Memory))
+			}
 		}
 	}
 	// Top CPU

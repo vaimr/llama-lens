@@ -287,6 +287,10 @@ class LlamaPoller:
         for k in ("ftype", "n_embd", "n_vocab", "n_ctx", "n_ctx_train", "vocab_type", "owned_by"):
             if props.get(k) is not None:
                 model[k] = props[k]
+        # mmproj — llama.cpp /props 可能包含 mmproj_path
+        mmproj = props.get("mmproj_path")
+        if mmproj:
+            model["mmproj_path"] = mmproj
         modalities = props.get("modalities") or []
         model["modalities"] = {
             "vision": "image" in modalities,

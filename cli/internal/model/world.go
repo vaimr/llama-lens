@@ -72,8 +72,10 @@ func (w *World) PushHostRing(h HostMetrics) {
 	push("swap_used", f64(float64(h.Mem.SwapUsedMB)))
 	push("net_rx", f64(sumIface(h.Net.Ifaces, true)))
 	push("net_tx", f64(sumIface(h.Net.Ifaces, false)))
-	if p := h.Process; p != nil {
-		push("proc_cpu", p.CPUPctRealtime)
+	if h.Process != nil {
+		for _, p := range h.Process {
+			push("proc_cpu", p.CPUPctRealtime)
+		}
 	}
 	for i, name := range []string{"load_1", "load_5", "load_15"} {
 		v := h.CPU.Load[i]
@@ -202,15 +204,18 @@ func (w *World) buildSnapshot(now, gen, prompt float64, source string) Snapshot 
 		}
 	}
 	// mmproj 来自进程命令行
-	if p := w.host.Process; p != nil {
-		if mp, ok := p.Flags["mmproj"]; ok {
-			model.MMProjPath = mp
-			if sz, ok2 := w.fileSize[mp]; ok2 {
-				model.MMProjSize = &sz
-			} else if fi, err := os.Stat(mp); err == nil {
-				sz := float64(fi.Size())
-				w.fileSize[mp] = sz
-				model.MMProjSize = &sz
+	if w.host.Process != nil {
+		for _, p := range w.host.Process {
+			if mp, ok := p.Flags["mmproj"]; ok {
+				model.MMProjPath = mp
+				if sz, ok2 := w.fileSize[mp]; ok2 {
+					model.MMProjSize = &sz
+				} else if fi, err := os.Stat(mp); err == nil {
+					sz := float64(fi.Size())
+					w.fileSize[mp] = sz
+					model.MMProjSize = &sz
+				}
+				break // 取第一个找到的 mmproj
 			}
 		}
 	}
