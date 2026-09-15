@@ -140,12 +140,19 @@ class HostMonitor:
         # 通过 model.path 匹配 PID，然后取该 PID 的 mmproj
         if model_path:
             matched_pid = None
+            model_path_lower = model_path.lower().rstrip("/")
             for pid, mp in model_paths.items():
-                if mp == model_path:
+                # 规范化比较：小写 + 去掉尾随斜杠
+                if str(mp).lower().rstrip("/") == model_path_lower:
                     matched_pid = pid
                     break
             if matched_pid and matched_pid in mmproj_paths:
                 model["mmproj_path"] = mmproj_paths[matched_pid]
+                log.debug("[%s] matched pid=%s mmproj=%s", self.cfg.id, matched_pid, mmproj_paths[matched_pid])
+            elif matched_pid:
+                log.warning("[%s] matched pid=%s but no mmproj", self.cfg.id, matched_pid)
+            else:
+                log.warning("[%s] model_path=%s not matched in model_paths=%s", self.cfg.id, model_path, list(model_paths.values()))
         
         sizes = hm.get("_model_sizes") or {}
         if model.get("path") and model.get("path") in sizes:
@@ -158,6 +165,7 @@ class HostMonitor:
 
         # Обогащаем process list model_path для каждого процесса (по pid)
         model_paths = hm.get("_model_paths") or {}
+        mmproj_paths = hm.get("_mmproj_paths") or {}
         process_raw = hm.get("process")
         if isinstance(process_raw, dict):
             process_list = process_raw.get("list", [])
@@ -167,17 +175,21 @@ class HostMonitor:
             process_list = []
         
         if process_list and model_paths:
+            # Нормализуем ключи model_paths в str для надёжного сравнения
+            model_paths_str = {str(k): v for k, v in model_paths.items()}
+            mmproj_paths_str = {str(k): v for k, v in mmproj_paths.items()}
+            enriched = 0
             for p in process_list:
                 pid = p.get("pid")
-                # pid может быть int или str (зависит от serialisation), проверяем оба
                 if pid:
-                    if pid in model_paths:
-                        p["model_path"] = model_paths[pid]
-                    else:
-                        # Пробуем строковое представление
-                        str_pid = str(pid)
-                        if str_pid in model_paths:
-                            p["model_path"] = model_paths[str_pid]
+                    spid = str(pid)
+                    if spid in model_paths_str:
+                        p["model_path"] = model_paths_str[spid]
+                        enriched += 1
+                    if spid in mmproj_paths_str:
+                        p["mmproj_path"] = mmproj_paths_str[spid]
+            log.debug("[%s] process enrichment: %d/%d processes enriched, model_paths keys=%s",
+                      self.cfg.id, enriched, len(process_list), list(model_paths.keys()))
 
         # 上下文：API 实时值（slot）优先，日志（任务结束行）兜底。
         # 注意 logst 是 LogPoller 的活引用，合并结果必须放副本，不能改原 state。
