@@ -77,6 +77,9 @@ for pid in $(pgrep -x "{process_name}"); do
   # Читаем cmdline как единую строку с разделителем пробел
   cmdline_raw=$(tr '\0' ' ' < /proc/$pid/cmdline)
   
+  # DEBUG: выводим сырой cmdline для диагностики
+  echo "CMDLINE:$pid:$cmdline_raw"
+  
   # Извлекаем model path (ищем --model или -m и берём следующее слово)
   model=""
   mmproj=""
@@ -99,6 +102,8 @@ for pid in $(pgrep -x "{process_name}"); do
       }}
     }}
   }}')
+  
+  echo "EXTRACTED:$pid:model=[$model] mmproj=[$mmproj]"
   
   if [ -n "$model" ]; then
     echo "MODEL:$pid:$model"
