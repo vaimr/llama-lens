@@ -156,6 +156,15 @@ class HostMonitor:
             host_metrics["process"] = dict(host_metrics["process"])
             host_metrics["process"]["flags"] = flags
 
+        # Обогащаем process list model_path для каждого процесса (по pid)
+        model_paths = hm.get("_model_paths") or {}
+        process_data = host_metrics.get("process")
+        if isinstance(process_data, list) and model_paths:
+            for p in process_data:
+                pid = p.get("pid")
+                if pid and pid in model_paths:
+                    p["model_path"] = model_paths[pid]
+
         # 上下文：API 实时值（slot）优先，日志（任务结束行）兜底。
         # 注意 logst 是 LogPoller 的活引用，合并结果必须放副本，不能改原 state。
         log_snap = dict(logst)
