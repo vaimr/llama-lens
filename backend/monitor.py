@@ -123,6 +123,13 @@ class HostMonitor:
         # 模型合并：/props + /v1/models + 命令行(mmproj) + ls -l(体积)
         model = dict(llama.get("model") or {})
         
+        # flags из cmdline (нужен для process.flags)
+        cmdline = (hm.get("process") or {}).get("cmdline", "") if isinstance(hm.get("process"), dict) else ""
+        if cmdline != self._last_cmdline:
+            self._last_cmdline = cmdline
+            self._flags = parse_cmdline(cmdline)
+        flags = self._flags
+        
         # 从 _mmproj_paths 获取 per-pid mmproj（新版多进程）
         # 匹配当前 model.path 找到对应的 mmproj
         mmproj_paths = hm.get("_mmproj_paths") or {}
@@ -131,7 +138,6 @@ class HostMonitor:
             # 找到匹配的 pid
             for pid, mp in mmproj_paths.items():
                 if mp == model_path:
-                    # mmproj 路径需要从路径中提取文件名
                     model["mmproj_path"] = mp
                     break
         elif mmproj_paths:
