@@ -29,6 +29,13 @@
     </div>
 
     <div class="right">
+      <span v-if="gpuTemp !== null" class="temp-badge" :class="tempLevel" :title="`${Math.round(gpuTemp)}°C`">
+        <svg class="thermo" viewBox="0 0 16 24" width="14" height="22" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 2a4.5 4.5 0 0 0-4.5 4.5c0 2.8 2 5.5 3.5 7.2V18a1 1 0 1 0 2 0v-4.3c1.5-1.7 3.5-4.4 3.5-7.2A4.5 4.5 0 0 0 8 2z"/>
+          <circle cx="8" cy="18" r="2"/>
+        </svg>
+        <span class="tv">{{ gpuTemp.toFixed(0) }}°</span>
+      </span>
       <LanguageSwitcher />
       <ThemeSwitcher />
       <span v-if="!llamaOnline" class="badge danger">{{ t('topBar.llama_offline') }}</span>
@@ -64,6 +71,7 @@ const props = defineProps({
   llamaOnline: { type: Boolean, default: false },
   sshOk: { type: Boolean, default: false },
   stats: { type: Object, default: null },
+  gpuTemp: { type: Number, default: null },
   mode: { type: String, default: 'ws' },
   degraded: { type: Boolean, default: false },
   connected: { type: Boolean, default: false }
@@ -140,6 +148,14 @@ const cpuText = computed(() => {
 })
 const cpuLevel = computed(() => (num(st.value.cpu) === null ? 'off' : alertLevel(alerts.value, 'cpu')))
 
+const tempLevel = computed(() => {
+  const t = props.gpuTemp
+  if (t === null) return ''
+  if (t >= 90) return 'danger'
+  if (t >= 75) return 'warn'
+  return ''
+})
+
 const dotClass = computed(() => {
   if (props.llamaOnline && props.sshOk) return 'online'
   if (props.sshOk) return 'warn'
@@ -194,6 +210,17 @@ function onModeChange(e) {
 .stat.danger .v { color: var(--red); }
 .stat.off .v { color: var(--text-faint); }
 .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.temp-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 12px;
+  background: rgba(16, 24, 40, 0.55);
+  border: 1px solid var(--card-border);
+  font-size: 12px; color: var(--cyan);
+}
+.temp-badge.warn .tv { color: var(--amber); }
+.temp-badge.danger .tv { color: var(--red); }
+.thermo { opacity: 0.8; }
+.tv { font-weight: 600; }
 .mode-indicator { width: 8px; height: 8px; border-radius: 50%; }
 .mode-indicator.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .mode-indicator.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }

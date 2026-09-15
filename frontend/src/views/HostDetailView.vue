@@ -7,6 +7,7 @@
       :llama-online="llamaOnline"
       :ssh-ok="sshOk"
       :stats="topStats"
+      :gpu-temp="currentGpuTemp"
       :mode="mode"
       :degraded="degraded"
       :connected="connected"
@@ -65,16 +66,6 @@
               :sub="mtpGaugeSub"
               :zones="mtpZones"
               :zone-colors="mtpZoneColors"
-            />
-            <GaugeCard
-              v-if="currentGpuTemp !== null"
-              :title="t('hostDetail.gpu_temp')"
-              :value="currentGpuTemp"
-              unit="°C"
-              :level="gpuTempLevel"
-              :zones="gpuTempZones"
-              :zone-colors="gpuTempZoneColors"
-              :spark="sparkGpuTemp"
             />
           </div>
         </section>
@@ -244,24 +235,7 @@ const currentGpuTemp = computed(() => {
   const temp = g[0].temp_c
   return temp === null || temp === undefined ? null : temp
 })
-const gpuTempLevel = computed(() => {
-  const t = currentGpuTemp.value
-  if (t === null) return ''
-  if (t >= 90) return 'danger'
-  if (t >= 75) return 'warn'
-  return ''
-})
-const gpuTempZones = computed(() => ({ min: 0, max: 100 }))
-const gpuTempZoneColors = computed(() => [
-  { min: 0, max: 65, color: 'cyan' },
-  { min: 65, max: 75, color: 'green' },
-  { min: 75, max: 90, color: 'amber' },
-  { min: 90, max: 100, color: 'red' }
-])
-// Sparkline для температуры (60s)
-const sparkGpuTemp = computed(() => mapTail('gpu_temp_0', (v) => v))
-
-const ctxUsedVal = computed(() => {
+const fmtCtxNum = (v) => fmtNum(v, 0)
   const u = ctx.value.used
   return u === null || u === undefined ? null : u
 })
