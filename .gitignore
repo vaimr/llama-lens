@@ -25,3 +25,6 @@ cli/dist/
 
 # local example config (canonical: config/hosts.yaml, template: config/hosts.example.yaml)
 /hosts.yaml
+
+# screenshots in repo root
+/*.png
