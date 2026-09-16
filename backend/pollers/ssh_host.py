@@ -25,6 +25,8 @@ log = logging.getLogger("llamalens.sshpoller")
 # ---------------------------------------------------------------------------
 
 BATCH_CMD = r"""
+# Restore IFS defensively (was poisoned by PROC awk assignment)
+IFS=$' \t\n'
 echo ==GPU==
 nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,memory.free,utilization.gpu,utilization.memory,temperature.gpu,power.draw,power.limit,fan.speed,clocks.current.graphics,clocks.current.memory,pcie.link.gen.current,pcie.link.width.current,pstate,temperature.memory,ecc.errors.corrected.volatile.total,ecc.errors.uncorrected.volatile.total,clocks_throttle_reasons.active --format=csv,noheader,nounits
 echo ==APPS==
@@ -48,19 +50,22 @@ df -B1 --output=source,target,size,used,avail,pcent {df_mounts}
 echo ==PROC==
 # Собираем ВСЕ llama-server процессы (не только первый)
 for pid in $(pgrep -x "{process_name}"); do
-  IFS=$(awk '{{print $14, $15, $23}}' /proc/$pid/stat)
+  STATV=$(awk '{{print $14, $15, $23}}' /proc/$pid/stat)
   VmRSS=$(grep '^VmRSS:' /proc/$pid/status | awk '{{print $2}}')
   VmSize=$(grep '^VmSize:' /proc/$pid/status | awk '{{print $2}}')
   Threads=$(grep '^Threads:' /proc/$pid/status | awk '{{print $2}}')
   ps_out=$(ps -o pcpu=,pmem=,etime= -p $pid)
   cmdline=$(tr '\0' ' ' < /proc/$pid/cmdline | tr '\n' ' ')
   echo "PROC_PID:$pid"
-  echo "PROC_STATS:$IFS"
+  echo "PROC_STATS:$STATV"
   echo "PROC_RSS:$VmRSS"
   echo "PROC_VSZ:$VmSize"
   echo "PROC_THREADS:$Threads"
   echo "PROC_PS:$ps_out"
   echo "PROC_CMDLINE:$cmdline"
+  # Extract llama port from cmdline
+  PORTV=$(echo "$cmdline" | awk '{{for(i=1;i<=NF;i++) if($i=="--port"||$i=="-p"){{print $(i+1); exit}}}}')
+  echo "PROC_PORT:$PORTV"
 done
 echo "PROC_END:"
 echo ==PS==
@@ -70,20 +75,17 @@ awk 'FNR==1 {{ n=split(FILENAME, p, "/"); pid=p[n-1]; i=index($0, ") "); if (i >
 echo ==PROCS==
 ls /proc | grep -c '^[0-9]'
 echo ==SERVICE==
-systemctl show {systemd_unit} -p Description,ActiveState,SubState,ExecMainStartTimestamp,CPUUsageNSec,MemoryCurrent,MemoryPeak,NTasks
+if [ -n "{systemd_unit}" ]; then systemctl show {systemd_unit} -p Description,ActiveState,SubState,ExecMainStartTimestamp,CPUUsageNSec,MemoryCurrent,MemoryPeak,NTasks; fi
 echo ==MODELS==
 # Собираем модель и mmproj для ВСЕХ llama-server процессов
 for pid in $(pgrep -x "{process_name}"); do
   # Читаем cmdline как единую строку с разделителем пробел
   cmdline_raw=$(tr '\0' ' ' < /proc/$pid/cmdline)
-  
-  # DEBUG: выводим сырой cmdline для диагностики
-  echo "CMDLINE:$pid:$cmdline_raw"
-  
+
   # Извлекаем model path (ищем --model или -m и берём следующее слово)
   model=""
   mmproj=""
-  
+
   # Используем awk для надёжного парсинга без Perl regex
   model=$(echo "$cmdline_raw" | awk '{{
     for (i=1; i<=NF; i++) {{
@@ -93,7 +95,7 @@ for pid in $(pgrep -x "{process_name}"); do
       }}
     }}
   }}')
-  
+
   mmproj=$(echo "$cmdline_raw" | awk '{{
     for (i=1; i<=NF; i++) {{
       if ($i == "--mmproj") {{
@@ -102,9 +104,9 @@ for pid in $(pgrep -x "{process_name}"); do
       }}
     }}
   }}')
-  
+
   echo "EXTRACTED:$pid:model=[$model] mmproj=[$mmproj]"
-  
+
   if [ -n "$model" ]; then
     echo "MODEL:$pid:$model"
   fi
@@ -772,14 +774,6 @@ def parse_proc(section: str, diff: DiffEngine, ts: float, host_id: str) -> Dict[
                 proc_lines.append(lines[i])
                 i += 1
             proc = _parse_single_proc(pid, proc_lines, diff, ts, host_id)
-            # Debug: выводим cmdline для каждого процесса
-            cl = proc.get("cmdline", "")
-            if cl:
-                cl_preview = cl[:120]
-            else:
-                cl_preview = "(EMPTY)"
-            import sys
-            print(f"[SSH {host_id}] PROC_PID:{pid} cmdline_preview=[{cl_preview}]", file=sys.stderr)
             procs.append(proc)
         else:
             i += 1
@@ -815,6 +809,8 @@ def _parse_single_proc(pid: int, proc_lines: List[str], diff: DiffEngine, ts: fl
                 proc["elapsed"] = f[2]
         elif line.startswith("PROC_CMDLINE:"):
             proc["cmdline"] = line[13:].strip()
+        elif line.startswith("PROC_PORT:"):
+            proc["llama_port"] = _i(line[12:])
         idx += 1
     return proc
 
@@ -1130,7 +1126,10 @@ class SshPoller:
         m["sys"]["procs"] = _i(sec.get("PROCS", "").strip(), 0)
 
         # 服务
-        m["service"] = parse_service(sec.get("SERVICE", ""))
+        if self.cfg.systemd_unit:
+            m["service"] = parse_service(sec.get("SERVICE", ""))
+        else:
+            m["service"] = {}
         m["service"]["unit"] = self.cfg.systemd_unit
 
         # 模型文件体积 + per-pid model/mmproj

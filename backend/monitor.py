@@ -7,6 +7,7 @@
 """
 import asyncio
 import logging
+import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -146,6 +147,13 @@ class HostMonitor:
                 if str(mp).lower().rstrip("/") == model_path_lower:
                     matched_pid = pid
                     break
+            # Fallback: case-insensitive BASENAME comparison
+            if not matched_pid:
+                model_bname = os.path.basename(model_path_lower)
+                for pid, mp in model_paths.items():
+                    if os.path.basename(str(mp).lower().rstrip("/")) == model_bname:
+                        matched_pid = pid
+                        break
             if matched_pid and matched_pid in mmproj_paths:
                 model["mmproj_path"] = mmproj_paths[matched_pid]
                 log.debug("[%s] matched pid=%s mmproj=%s", self.cfg.id, matched_pid, mmproj_paths[matched_pid])
@@ -216,6 +224,7 @@ class HostMonitor:
                 "speed_source": source,
                 "log": log_snap,
                 "slots": llama.get("slots", []),
+                "port": self.cfg.llama.port,
             },
             "host_metrics": host_metrics,
             "events": self.events.list(50),

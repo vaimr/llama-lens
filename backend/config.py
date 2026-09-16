@@ -120,7 +120,7 @@ class HostConfig:
     process_name: str = "llama-server"
     log: LogCfg = field(default_factory=LogCfg)
     disk_mounts: List[str] = field(default_factory=lambda: ["/"])
-    systemd_unit: str = "llama-server.service"
+    systemd_unit: str = ""
     thresholds: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 
@@ -217,7 +217,7 @@ def _build_host(d: dict, global_t: dict) -> HostConfig:
         process_name=process_name,
         log=_build_log(d.get("log")),
         disk_mounts=[str(x) for x in (d.get("disk_mounts") or ["/"])],
-        systemd_unit=d.get("systemd_unit", "llama-server.service"),
+        systemd_unit=d.get("systemd_unit", ""),
         thresholds=merge_thresholds(global_t, d.get("thresholds") or {}),
     )
 

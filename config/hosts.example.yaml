@@ -33,7 +33,9 @@ hosts:
       timeout: 15.0
     process:
       name: llama-server      # 进程名（pgrep -x）
-    systemd_unit: llama-server.service
+    # systemd_unit: llama-server.service   # optional: omit or leave empty when
+                                         # llama-server is started by an external
+                                         # launcher (no systemd unit to monitor)
     log:
       source: journal         # journal（systemd unit）| file（日志文件，非 systemd 环境用）
       unit: llama-server      # systemd unit 名（source=journal 时生效）

@@ -60,11 +60,43 @@ const props = defineProps({
   process: { type: [Object, Array], default: () => ({}) },
   service: { type: Object, default: () => ({}) },
   // Модель текущего llama-server для фильтрации процессов
-  modelPath: { type: String, default: '' }
+  modelPath: { type: String, default: '' },
+  // llama-server port этого таба (CHANGE 1)
+  llamaPort: { type: [Number, String], default: null },
+  // hostId для персистентного состояния collapse (CHANGE 2)
+  hostId: { type: String, required: true }
 })
 
-// Состояние раскрытия хранится отдельно по PID, не привязано к объектам
-const _openState = ref({}) // { [pid]: { _cmdOpen: bool, _flagOpen: bool } }
+// ---- CHANGE 2: Persisted collapse state ----
+const STORAGE_KEY_PREFIX = 'llamalens:proc-open:'
+const STORAGE_KEY = STORAGE_KEY_PREFIX + props.hostId
+
+function loadStoredState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') return parsed
+    }
+  } catch (e) { /* private mode / SSR */ }
+  return null
+}
+
+const _openState = ref({})
+
+function initOpenState() {
+  const stored = loadStoredState()
+  if (stored) {
+    _openState.value = stored
+  }
+}
+initOpenState()
+
+function saveOpenState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(_openState.value))
+  } catch (e) { /* private mode / quota */ }
+}
 
 function _state(pid) {
   if (!(_openState.value[pid])) {
@@ -76,35 +108,78 @@ function _state(pid) {
 function toggleOpen(pid, key) {
   const s = _state(pid)
   s[key] = !s[key]
+  saveOpenState()
 }
 
+// ---- CHANGE 1: Robust process filtering ----
 function extractModelPath(p) {
-  // Сначала используем model_path от бэкенда (надёжнее, чем парсить cmdline)
   if (p.model_path) return p.model_path
-  // Фоллбэк: извлекаем из cmdline
   const m = (p.cmdline || '').match(/(?:--model\s+|-m\s+)(\S+)/i)
   return m ? m[1] : ''
 }
 
-// Фильтруем процессы по modelPath, если задан
-function filterByModel(rawList) {
-  if (!props.modelPath || !rawList.length) return rawList
-  
-  const mp = props.modelPath.toLowerCase().replace(/\/+$/, '')
-  const matched = []
-  const unmatched = []
-  
-  for (const p of rawList) {
-    const pmp = extractModelPath(p).toLowerCase().replace(/\/+$/, '')
-    if (pmp && pmp === mp) {
-      matched.push(p)
-    } else if (pmp) {
-      unmatched.push(p)
+function extractPortFromCmdline(cmdline) {
+  if (!cmdline) return null
+  const m = cmdline.match(/(?:--port|-p)\s*(\d+)/)
+  return m ? Number(m[1]) : null
+}
+
+function filterProcesses(rawList) {
+  if (!rawList.length) return rawList
+
+  // Priority 1: llamaPort match
+  if (props.llamaPort !== null && props.llamaPort !== undefined) {
+    const targetPort = Number(props.llamaPort)
+    const portMatched = []
+    const nonPortMatched = []
+
+    for (const p of rawList) {
+      const pPort = p.llama_port !== null && p.llama_port !== undefined ? Number(p.llama_port) : extractPortFromCmdline(p.cmdline)
+      if (pPort === targetPort) {
+        portMatched.push(p)
+      } else {
+        nonPortMatched.push(p)
+      }
     }
+
+    if (portMatched.length) return portMatched
+
+    // llamaPort was set but nothing matched — prefer cmdline-port fallback
+    const cmdlineMatched = []
+    const remaining = []
+    for (const p of nonPortMatched) {
+      const pPort = extractPortFromCmdline(p.cmdline)
+      if (pPort === targetPort) {
+        cmdlineMatched.push(p)
+      } else {
+        remaining.push(p)
+      }
+    }
+    if (cmdlineMatched.length) return cmdlineMatched
+    // Nothing matched at all — show full list (not empty)
+    return rawList
   }
-  
-  // Возвращаем matched, если есть; иначе unmatched (чтобы не показывать пустоту)
-  return matched.length ? matched : unmatched
+
+  // Priority 2: model_path exact match (existing behavior)
+  if (props.modelPath) {
+    const mp = props.modelPath.toLowerCase().replace(/\/+$/, '')
+    const matched = []
+    const unmatched = []
+
+    for (const p of rawList) {
+      const pmp = extractModelPath(p).toLowerCase().replace(/\/+$/, '')
+      if (pmp && pmp === mp) {
+        matched.push(p)
+      } else if (pmp) {
+        unmatched.push(p)
+      }
+    }
+
+    return matched.length ? matched : unmatched
+  }
+
+  // No filters — return all
+  return rawList
 }
 
 // 支持单进程对象或进程数组（新版 CLI Go → []ProcInfo，旧版 backend SSH → 单对象）
@@ -114,8 +189,8 @@ const processList = computed(() => {
   if (Array.isArray(raw)) list = raw
   else if (raw && raw.list) list = raw.list
   else if (raw && raw.found !== undefined) list = [raw]
-  
-  return filterByModel(list)
+
+  return filterProcesses(list)
 })
 
 const found = computed(() => processList.value.length > 0)
