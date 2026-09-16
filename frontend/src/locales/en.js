@@ -26,6 +26,7 @@ export default {
     online: 'Online',
     polling: 'Polling',
     speed: 'Speed',
+    prefill: 'Prefill',
     ws_realtime: 'WS Real-time'
   },
   cpuPanel: {
@@ -292,6 +293,8 @@ export default {
   stats: {
     title: 'Usage statistics',
     hint_since: 'Counters since last reset',
+    expand: 'Expand',
+    collapse: 'Collapse',
     column_backend: 'Backend',
     requests: 'Requests',
     cached: 'Cached',

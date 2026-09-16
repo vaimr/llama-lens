@@ -26,6 +26,7 @@ export default {
     online: 'Онлайн',
     polling: 'Опрос',
     speed: 'Скорость',
+    prefill: 'Префилл',
     ws_realtime: 'WS Реальное время'
   },
   cpuPanel: {
@@ -292,6 +293,8 @@ export default {
   stats: {
     title: 'Статистика использования',
     hint_since: 'Счётчики с момента последнего сброса',
+    expand: 'Развернуть',
+    collapse: 'Свернуть',
     column_backend: 'Бэкенд',
     requests: 'Запросы',
     cached: 'Кэш',

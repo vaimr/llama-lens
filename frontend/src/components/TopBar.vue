@@ -87,7 +87,7 @@ const genText = computed(() => {
   if (!s.online) return '—'
   const p = num(s.prompt)
   const g = num(s.gen)
-  const v = p > 0 ? p : g
+  const v = g > 0 ? g : p
   return v === null || v <= 0 ? '—' : `${v.toFixed(1)} t/s`
 })
 const genTip = computed(() => {

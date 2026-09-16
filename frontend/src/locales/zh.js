@@ -26,6 +26,7 @@ export default {
     online: '在线',
     polling: '轮询中',
     speed: 'Token 速度',
+    prefill: '预填充',
     ws_realtime: 'WS 实时'
   },
   cpuPanel: {
@@ -292,6 +293,8 @@ export default {
   stats: {
     title: '使用统计',
     hint_since: '自上次重置以来的计数',
+    expand: '展开',
+    collapse: '收起',
     column_backend: '后端',
     requests: '请求',
     cached: '缓存',

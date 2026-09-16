@@ -7,6 +7,13 @@
         <span v-if="windowSince" class="mono dim">{{ t('stats.window_since', { time: windowSince }) }}</span>
       </span>
       <button
+        class="btn-collapse"
+        :title="collapsed ? t('stats.expand') : t('stats.collapse')"
+        @click="collapsed = !collapsed"
+      >
+        <span class="arrow" :class="{ down: !collapsed }">›</span>
+      </button>
+      <button
         class="btn-reset-all"
         :class="{ confirming: confirmState === 'pending' }"
         :title="t('stats.reset_all')"
@@ -17,7 +24,7 @@
     </div>
 
     <table class="tbl">
-      <thead>
+      <thead v-show="!collapsed">
         <tr>
           <th>{{ t('stats.column_backend') }}</th>
           <th class="num">{{ t('stats.requests') }}</th>
@@ -30,19 +37,23 @@
           <th class="num" style="width: 36px"></th>
         </tr>
       </thead>
+      <Transition name="collapse">
+        <tbody v-show="!collapsed">
+          <tr v-for="row in rows" :key="row.id">
+            <td class="mono"><router-link :to="`/host/${row.id}`" class="host-link">{{ row.name }}</router-link></td>
+            <td class="num mono">{{ fmtTokens(row.stats.requests) }}</td>
+            <td class="num mono">{{ fmtTokens(row.stats.cached_tokens) }}</td>
+            <td class="num mono">{{ fmtTokens(row.stats.processed_tokens) }}</td>
+            <td class="num mono">{{ fmtTokens(row.stats.generated_tokens) }}</td>
+            <td class="num">
+              <button class="btn-reset" :title="t('stats.reset')" @click="onResetHost(row.id)">
+                ↺
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </Transition>
       <tbody>
-        <tr v-for="row in rows" :key="row.id">
-          <td class="mono">{{ row.name }}</td>
-          <td class="num mono">{{ fmtTokens(row.stats.requests) }}</td>
-          <td class="num mono">{{ fmtTokens(row.stats.cached_tokens) }}</td>
-          <td class="num mono">{{ fmtTokens(row.stats.processed_tokens) }}</td>
-          <td class="num mono">{{ fmtTokens(row.stats.generated_tokens) }}</td>
-          <td class="num">
-            <button class="btn-reset" :title="t('stats.reset')" @click="onResetHost(row.id)">
-              ↺
-            </button>
-          </td>
-        </tr>
         <tr class="row-total">
           <td class="mono"><b>{{ t('stats.total') }}</b></td>
           <td class="num mono">{{ fmtTokens(total.requests) }}</td>
@@ -66,6 +77,18 @@ import { t } from '../i18n'
 
 const props = defineProps({
   hosts: { type: Array, required: true }
+})
+
+// ---- collapse state ----
+const COLLAPSED_KEY = 'llamalens.stats.collapsed'
+function initialCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === '1'
+  } catch { return false }
+}
+const collapsed = ref(initialCollapsed())
+watch(collapsed, (v) => {
+  try { localStorage.setItem(COLLAPSED_KEY, v ? '1' : '0') } catch { /* noop */ }
 })
 
 // ---- data ----
@@ -141,8 +164,8 @@ onBeforeUnmount(() => { clearTimeout(confirmTimer); clearTimeout(tooltipTimer) }
 
 <style scoped>
 .stats-panel {
-  padding: 14px 18px;
-  margin-bottom: 4px;
+  padding: 16px 18px;
+  margin: 20px 24px 0;
 }
 .panel-header {
   display: flex;
@@ -175,6 +198,22 @@ onBeforeUnmount(() => { clearTimeout(confirmTimer); clearTimeout(tooltipTimer) }
 }
 .btn-reset-all:hover { color: var(--text); border-color: var(--card-border-hover); }
 .btn-reset-all.confirming { color: var(--amber); border-color: var(--amber); }
+
+/* collapse toggle */
+.btn-collapse {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.btn-collapse:hover { color: var(--cyan); background: rgba(0, 229, 255, 0.08); }
+.arrow { display: inline-block; transition: transform 0.2s; }
+.arrow.down { transform: rotate(90deg); }
 
 /* table */
 .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -209,6 +248,17 @@ onBeforeUnmount(() => { clearTimeout(confirmTimer); clearTimeout(tooltipTimer) }
   line-height: 1;
 }
 .btn-reset:hover { color: var(--cyan); background: rgba(0, 229, 255, 0.08); }
+
+/* host name link */
+.host-link {
+  color: var(--cyan);
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.host-link:hover {
+  text-decoration: underline;
+  opacity: 0.8;
+}
 
 /* total row */
 .row-total td {
@@ -247,5 +297,15 @@ onBeforeUnmount(() => { clearTimeout(confirmTimer); clearTimeout(tooltipTimer) }
   border-radius: 6px;
   padding: 6px 10px;
   line-height: 1.4;
+}
+
+/* collapse transition */
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: opacity 0.2s ease;
+}
+.collapse-enter-from,
+.collapse-leave-to {
+  opacity: 0;
 }
 </style>

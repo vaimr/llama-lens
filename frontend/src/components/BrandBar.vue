@@ -11,6 +11,8 @@
       <span>{{ t('brandBar.online') }} <b class="lv-green">{{ onlineCount }}</b></span>
       <span v-if="totalSpeed > 0" class="sep">·</span>
       <span v-if="totalSpeed > 0">{{ t('brandBar.speed') }} <b class="lv-cyan">{{ totalSpeed.toFixed(1) }} tok/s</b></span>
+      <span v-if="totalPrefill > 0" class="sep">·</span>
+      <span v-if="totalPrefill > 0">{{ t('brandBar.prefill') }} <b class="lv-amber">{{ totalPrefill.toFixed(1) }} tok/s</b></span>
       <span class="conn" :class="connected ? 'ok' : 'bad'">{{ connected ? t('brandBar.ws_realtime') : t('brandBar.polling') }}</span>
       <LanguageSwitcher />
       <ThemeSwitcher />
@@ -36,6 +38,7 @@ const props = defineProps({
 const hostsTotal = computed(() => props.hosts.length)
 const onlineCount = computed(() => props.hosts.filter((h) => h.online).length)
 const totalSpeed = computed(() => props.hosts.reduce((s, h) => s + (h.gen_speed_tps || 0), 0))
+const totalPrefill = computed(() => props.hosts.reduce((s, h) => s + (h.prompt_speed_tps || 0), 0))
 
 // 门户级聚合速度同步到全局：浏览器标签页标题（App.vue）与
 // Terminal 窗口标题栏（TerminalFrame.vue）据此展示，任意视图均可见
@@ -78,6 +81,7 @@ watch(totalSpeed, (v) => { globalSpeed.value = v }, { immediate: true })
 .sep { color: var(--text-faint); }
 .lv-green { color: var(--green) !important; }
 .lv-cyan { color: var(--cyan) !important; }
+.lv-amber { color: var(--amber) !important; }
 .conn { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
 .conn.ok { color: var(--green); border: 1px solid rgba(0, 255, 157, 0.35); }
 .conn.bad { color: var(--amber); border: 1px solid rgba(255, 197, 61, 0.35); }
