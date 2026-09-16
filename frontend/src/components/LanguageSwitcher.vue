@@ -1,5 +1,5 @@
 <template>
-  <select :value="locale" @change="onChange">
+  <select class="lang-select" :value="locale" @change="onChange">
     <option value="en">{{ languageLabel.en }}</option>
     <option value="ru">{{ languageLabel.ru }}</option>
     <option value="zh">{{ languageLabel.zh }}</option>

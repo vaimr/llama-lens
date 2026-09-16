@@ -56,3 +56,26 @@ async def host_history(request: Request, host_id: str,
 async def host_events(request: Request, host_id: str,
                       limit: int = Query(default=50, ge=1, le=200)):
     return _monitor(request, host_id).events_list(limit)
+
+
+# ---------------------------------------------------------------------------
+# Совокупная статистика (аналог llama-swap)
+# ---------------------------------------------------------------------------
+
+@router.get("/stats")
+async def stats(request: Request):
+    """Срез по каждому бэкенду + суммарная статистика."""
+    return _registry(request).stats_snapshot()
+
+
+@router.post("/hosts/{host_id}/stats/reset")
+async def reset_host_stats(request: Request, host_id: str):
+    snap = _registry(request).reset_host(host_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="unknown host: %s" % host_id)
+    return {"ok": True, "host_id": host_id, "stats": snap}
+
+
+@router.post("/stats/reset")
+async def reset_all_stats(request: Request):
+    return {"ok": True, "stats": _registry(request).reset_all()}

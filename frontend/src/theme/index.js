@@ -4,9 +4,9 @@ import { reactive } from 'vue'
 // aurora   = 现有深色玻璃拟态风格（默认）
 // terminal = 现代终端风格（macOS 窗口 + 等宽字体 + ANSI 配色 + tmux 状态栏）
 export const THEMES = [
-  { id: 'aurora', label: 'Aurora 极光' },
-  { id: 'terminal', label: 'Terminal 终端' },
-  { id: 'light', label: 'Light 浅色' },
+  { id: 'aurora', label: 'Aurora' },
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'light', label: 'Light' },
   { id: 'monokai', label: 'Monokai' },
   { id: 'nord', label: 'Nord' },
   { id: 'dracula', label: 'Dracula' },

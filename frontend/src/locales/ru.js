@@ -267,6 +267,43 @@ export default {
   themeSwitcher: {
     label: 'Тема'
   },
+  theme: {
+    aurora: 'Аврора',
+    terminal: 'Терминал',
+    light: 'Светлая',
+    monokai: 'Monokai',
+    nord: 'Nord',
+    dracula: 'Dracula',
+    synthwave: "Synthwave '84",
+    tokyonight: 'Tokyo Night',
+    matrix: 'Матрица'
+  },
+  hostCard: {
+    no_model: 'Нет модели',
+    params_suffix: 'парам.',
+    vram: 'VRAM',
+    no_gpu_data: 'Нет данных GPU',
+    cpu: 'CPU',
+    mem: 'ОЗУ',
+    ssh_disconnected: 'SSH отключён',
+    llama_offline: 'Llama офлайн',
+    prefill: 'преф.'
+  },
+  stats: {
+    title: 'Статистика использования',
+    hint_since: 'Счётчики с момента последнего сброса',
+    column_backend: 'Бэкенд',
+    requests: 'Запросы',
+    cached: 'Кэш',
+    processed: 'Обработано',
+    generated: 'Сгенерировано',
+    total: 'Итого',
+    reset: 'Сброс',
+    reset_all: 'Сбросить всё',
+    reset_all_confirm: 'Подтвердить?',
+    cached_note: 'Оценочное число токенов из кэша промптов; многие бэкенды показывают 0 — это нормально.',
+    window_since: 'с {time}'
+  },
   terminal: {
     prompt: '$ ',
     title: 'Терминал',

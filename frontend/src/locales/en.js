@@ -267,6 +267,43 @@ export default {
   themeSwitcher: {
     label: 'Theme'
   },
+  theme: {
+    aurora: 'Aurora',
+    terminal: 'Terminal',
+    light: 'Light',
+    monokai: 'Monokai',
+    nord: 'Nord',
+    dracula: 'Dracula',
+    synthwave: "Synthwave '84",
+    tokyonight: 'Tokyo Night',
+    matrix: 'Matrix'
+  },
+  hostCard: {
+    no_model: 'No model',
+    params_suffix: 'params',
+    vram: 'VRAM',
+    no_gpu_data: 'No GPU data',
+    cpu: 'CPU',
+    mem: 'MEM',
+    ssh_disconnected: 'SSH disconnected',
+    llama_offline: 'Llama offline',
+    prefill: 'prefill'
+  },
+  stats: {
+    title: 'Usage statistics',
+    hint_since: 'Counters since last reset',
+    column_backend: 'Backend',
+    requests: 'Requests',
+    cached: 'Cached',
+    processed: 'Processed',
+    generated: 'Generated',
+    total: 'Total',
+    reset: 'Reset',
+    reset_all: 'Reset all',
+    reset_all_confirm: 'Confirm?',
+    cached_note: 'Best-effort prompt-cache tokens; many backends report 0 — expected.',
+    window_since: 'since {time}'
+  },
   terminal: {
     prompt: '$ ',
     title: 'Terminal',

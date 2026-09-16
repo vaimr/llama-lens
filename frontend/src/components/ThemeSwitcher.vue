@@ -2,7 +2,7 @@
   <label class="theme-switch">
     <span class="ts-label">{{ t('themeSwitcher.label') }}</span>
     <select :value="themeState.id" @change="onChange">
-      <option v-for="t in THEMES" :key="t.id" :value="t.id">{{ t.label }}</option>
+      <option v-for="th in THEMES" :key="th.id" :value="th.id">{{ themeLabel(th) }}</option>
     </select>
   </label>
 </template>
@@ -10,6 +10,11 @@
 <script setup>
 import { THEMES, themeState, setTheme } from '../theme'
 import { t } from '../i18n'
+
+function themeLabel(th) {
+  const name = t('theme.' + th.id)
+  return name === 'theme.' + th.id ? th.label : name
+}
 
 function onChange(e) {
   setTheme(e.target.value)

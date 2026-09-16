@@ -13,9 +13,16 @@
     </div>
 
     <div class="speed" :class="{ muted: !host.online }">
-      <div class="speed-num">
-        <span class="mono big" :class="speedLevel">{{ speedText }}</span>
-        <span class="unit">tok/s</span>
+      <div class="speed-body">
+        <div class="speed-num">
+          <span class="mono big" :class="speedLevel">{{ speedText }}</span>
+          <span class="unit">tok/s</span>
+        </div>
+        <div v-if="host.prompt_speed_tps !== undefined" class="prefill">
+          <span class="prefill-label">{{ t('hostCard.prefill') }}</span>
+          <span class="mono">{{ prefillText }}</span>
+          <span class="unit">t/s</span>
+        </div>
       </div>
       <svg v-if="sparkD" class="spark" :viewBox="`0 0 ${sparkW} ${sparkH}`" preserveAspectRatio="none">
         <path :d="sparkD" fill="none" :stroke="sparkColor" stroke-width="1.5" vector-effect="non-scaling-stroke" />
@@ -52,6 +59,13 @@ const props = defineProps({
 
 const speed = useCountUp(computed(() => (props.host.online ? props.host.gen_speed_tps || 0 : 0)))
 const speedText = computed(() => (speed.value === null || speed.value === undefined ? '—' : Number(speed.value).toFixed(1)))
+
+const prefillText = computed(() => {
+  if (!props.host.online) return '—'
+  const v = props.host.prompt_speed_tps
+  if (v === null || v === undefined || Number.isNaN(v)) return '—'
+  return Number(v).toFixed(1)
+})
 
 const sparkW = 130
 const sparkH = 30
@@ -118,9 +132,13 @@ function valClass(v) {
   gap: 10px;
   margin-bottom: 12px;
 }
+.speed-body { display: flex; flex-direction: column; gap: 2px; }
 .speed-num { display: flex; align-items: baseline; gap: 6px; }
 .big { font-size: 32px; font-weight: 700; color: var(--cyan); text-shadow: 0 0 14px rgba(0, 229, 255, 0.45); line-height: 1; }
 .unit { color: var(--text-dim); font-size: 11px; }
+.prefill { display: flex; align-items: baseline; gap: 4px; font-size: 11px; }
+.prefill-label { color: var(--text-faint); font-weight: 500; }
+.prefill .mono { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .muted { opacity: 0.45; }
 .spark { width: 130px; height: 30px; flex: none; }
 .gpus { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }

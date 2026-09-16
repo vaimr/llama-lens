@@ -17,6 +17,7 @@ from .events import EventDetector
 from .diff import DiffEngine
 from .llama_flags import parse_cmdline
 from .store import RingBuffer, downsample
+from .stats import HostStats, StatsStore, aggregate
 from .pollers.llama_api import LlamaPoller
 from .pollers.log_poller import LogPoller
 from .pollers.ssh_conn import SshConnection
@@ -38,7 +39,8 @@ class HostMonitor:
         self.ring_llama = RingBuffer(global_cfg.llama_points)
         self.ring_host = RingBuffer(global_cfg.host_points)
         self.ssh = SshConnection(cfg.ssh, self.events, cfg.id)
-        self.llama = LlamaPoller(cfg, self.events)
+        self.stats = HostStats(cfg.id)
+        self.llama = LlamaPoller(cfg, self.events, self.stats)
         self.ssh_poller = SshPoller(cfg, self.ssh, self.diff, self.ring_host, self.events)
         self.log_poller = LogPoller(cfg, self.ssh, self.events, self.ring_llama)
         self._tasks: List[asyncio.Task] = []
@@ -286,6 +288,7 @@ class HostMonitor:
             "model_name": model.get("name", ""),
             "n_params": model.get("n_params"),
             "gen_speed_tps": ll.get("gen_speed_tps", 0.0),
+            "prompt_speed_tps": ll.get("prompt_speed_tps", 0.0),
             "speed_source": ll.get("speed_source", "api"),
             "gpus": gpus,
             "cpu_pct": (hm.get("cpu") or {}).get("usage_pct"),
@@ -293,24 +296,99 @@ class HostMonitor:
             "speed_spark": [[t, v] for t, v in spark],
             "alerts": alerts,
             "alerts_count": len([a for a in alerts if a["level"] == "danger"]),
+            "stats": self.stats.snapshot(),
         }
+
+    def reset_stats(self, now: Optional[float] = None) -> Dict[str, Any]:
+        """Сброс совокупной статистики этого бэкенда (кнопка в UI)."""
+        self.stats.reset(now)
+        return self.stats.snapshot()
 
 
 class MonitorRegistry:
+    STATS_FILENAME = "stats.json"
+    PERSIST_INTERVAL_S = 10.0
+
     def __init__(self, app_cfg: AppConfig):
         self.app_cfg = app_cfg
         self.monitors: Dict[str, HostMonitor] = {}
         for h in app_cfg.hosts:
             self.monitors[h.id] = HostMonitor(h, app_cfg.global_cfg)
+        # Персист совокупной статистики: грузим пережитое, дальше дельты сверху.
+        self.stats_store = StatsStore(os.path.join(app_cfg.data_dir, self.STATS_FILENAME))
+        self._persist_task: Optional[asyncio.Task] = None
+        self._loaded_persist()
+
+    def _loaded_persist(self) -> None:
+        persisted = self.stats_store.load()
+        for hid, data in persisted.items():
+            m = self.monitors.get(hid)
+            if m is not None:
+                try:
+                    m.stats.load_dict(data)
+                except Exception:
+                    log.exception("[%s] не удалось восстановить stats", hid)
 
     async def start(self) -> None:
         for m in self.monitors.values():
             await m.start()
+        if self.monitors and self.stats_store.enabled:
+            self._persist_task = asyncio.create_task(self._persist_loop())
 
     async def stop(self) -> None:
+        if self._persist_task is not None:
+            self._persist_task.cancel()
+            self._persist_task = None
         for m in self.monitors.values():
             await m.stop()
+        self._save_stats_now()  # финальный флеш совокупной статистики
 
+    # ------------------------------------------------------------------
+    async def _persist_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self.PERSIST_INTERVAL_S)
+            try:
+                self._save_stats()
+            except Exception:
+                log.exception("stats: периодическое сохранение упало")
+
+    def _collect_stats(self) -> Dict[str, Any]:
+        return {mid: m.stats.to_dict() for mid, m in self.monitors.items()}
+
+    def _save_stats(self) -> bool:
+        """Сохраняем только если есть изменения (дёшево, без write на пустоте)."""
+        changed = any(m.stats.pop_dirty() for m in self.monitors.values())
+        if not changed:
+            return False
+        return self.stats_store.save(self._collect_stats())
+
+    def _save_stats_now(self) -> bool:
+        if not self.stats_store.enabled:
+            return False
+        for m in self.monitors.values():
+            m.stats.pop_dirty()
+        return self.stats_store.save(self._collect_stats())
+
+    # ------------------------------------------------------------------
+    def reset_host(self, host_id: str) -> Optional[Dict[str, Any]]:
+        m = self.monitors.get(host_id)
+        if m is None:
+            return None
+        snap = m.reset_stats()
+        self._save_stats_now()
+        return snap
+
+    def reset_all(self) -> Dict[str, Any]:
+        for m in self.monitors.values():
+            m.stats.reset()
+        self._save_stats_now()
+        return self.stats_snapshot()
+
+    def stats_snapshot(self) -> Dict[str, Any]:
+        hosts = {mid: m.stats.snapshot() for mid, m in self.monitors.items()}
+        return {"hosts": hosts, "total": aggregate(list(hosts.values()))}
+
+    # ------------------------------------------------------------------
     def get(self, host_id: str) -> Optional[HostMonitor]:
         return self.monitors.get(host_id)
 

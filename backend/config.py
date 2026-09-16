@@ -137,6 +137,7 @@ class AppConfig:
     global_cfg: GlobalConfig
     hosts: List[HostConfig]
     port: int = 8000
+    data_dir: str = "data"      # каталог персиста (совокупная статистика и т.п.)
 
 
 # ---------------------------------------------------------------------------
@@ -253,5 +254,6 @@ def load_config(base_dir: str, env_file: Optional[str] = None,
             h.ssh.key_path = os.path.expanduser(h.ssh.key_path)
 
     port = int(os.environ.get("PORT", 8000))
-    return AppConfig(global_cfg=global_cfg, hosts=hosts, port=port)
+    data_dir = os.environ.get("LLAMALENS_DATA_DIR") or os.path.join(base_dir, "data")
+    return AppConfig(global_cfg=global_cfg, hosts=hosts, port=port, data_dir=data_dir)
 

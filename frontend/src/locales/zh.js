@@ -267,6 +267,43 @@ export default {
   themeSwitcher: {
     label: '主题'
   },
+  theme: {
+    aurora: '极光',
+    terminal: '终端',
+    light: '浅色',
+    monokai: 'Monokai',
+    nord: 'Nord',
+    dracula: 'Dracula',
+    synthwave: "Synthwave '84",
+    tokyonight: 'Tokyo Night',
+    matrix: '矩阵'
+  },
+  hostCard: {
+    no_model: '无模型',
+    params_suffix: '参数',
+    vram: '显存',
+    no_gpu_data: '无GPU数据',
+    cpu: 'CPU',
+    mem: '内存',
+    ssh_disconnected: 'SSH已断开',
+    llama_offline: 'Llama离线',
+    prefill: '预填充'
+  },
+  stats: {
+    title: '使用统计',
+    hint_since: '自上次重置以来的计数',
+    column_backend: '后端',
+    requests: '请求',
+    cached: '缓存',
+    processed: '已处理',
+    generated: '已生成',
+    total: '总计',
+    reset: '重置',
+    reset_all: '重置全部',
+    reset_all_confirm: '确认？',
+    cached_note: '最佳努力的提示词缓存token数；许多后端报告0——这是正常的。',
+    window_since: '自 {time} 起'
+  },
   terminal: {
     prompt: '$ ',
     title: '终端',

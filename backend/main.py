@@ -89,7 +89,8 @@ def create_app(base_dir: Optional[str] = None) -> FastAPI:
     except FileNotFoundError:
         log.warning("config/hosts.yaml 不存在，以空主机列表启动（cp config/hosts.example.yaml config/hosts.yaml）")
         from .config import AppConfig, GlobalConfig
-        app_cfg = AppConfig(global_cfg=GlobalConfig(), hosts=[])
+        app_cfg = AppConfig(global_cfg=GlobalConfig(), hosts=[],
+                            data_dir=os.path.join(base_dir, "data"))
 
     registry = MonitorRegistry(app_cfg)
 

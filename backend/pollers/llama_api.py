@@ -69,9 +69,10 @@ class _SlotState:
 class LlamaPoller:
     """每主机一个 HTTP 采集器。state 供 HostMonitor.snapshot 读取。"""
 
-    def __init__(self, cfg: HostConfig, events: EventDetector):
+    def __init__(self, cfg: HostConfig, events: EventDetector, stats=None):
         self.cfg = cfg
         self.events = events
+        self.stats = stats  # Optional[HostStats]: совокупная статистика (дельты /slots)
         # URL prefix: path "v1/llama" → "/v1/llama", empty → ""
         raw_path = cfg.llama.path
         if raw_path:
@@ -210,6 +211,12 @@ class LlamaPoller:
         self.state["gen_speed_tps"] = round(total_gen, 2)
         self.state["prompt_speed_tps"] = round(total_prompt, 2)
         self.state["ctx"] = {"used": agg_used, "total": agg_total}
+        # Совокупная статистика (аналог llama-swap): дельты по всем слотам.
+        if self.stats is not None:
+            try:
+                self.stats.observe(out, now)
+            except Exception:
+                log.exception("[%s] stats.observe  упала", self.cfg.id)
 
     def _diff_slot(self, st: _SlotState, slot: dict, now: float) -> None:
         """按架构文档 §4.1 的差分算法更新单 slot 速度与任务事件。"""
