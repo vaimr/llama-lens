@@ -158,9 +158,13 @@ class HostMonitor:
                 model["mmproj_path"] = mmproj_paths[matched_pid]
                 log.debug("[%s] matched pid=%s mmproj=%s", self.cfg.id, matched_pid, mmproj_paths[matched_pid])
             elif matched_pid:
-                log.warning("[%s] matched pid=%s but no mmproj", self.cfg.id, matched_pid)
+                # Отсутствие mmproj у процесса — норма для текстовых моделей
+                log.debug("[%s] matched pid=%s but no mmproj", self.cfg.id, matched_pid)
             else:
-                log.warning("[%s] model_path=%s not matched in model_paths=%s", self.cfg.id, model_path, list(model_paths.values()))
+                # Не спамить каждый snapshot: предупреждаем один раз на конкретный непроmatchенный путь
+                if getattr(self, "_last_nomatch", None) != model_path:
+                    self._last_nomatch = model_path
+                    log.warning("[%s] model_path=%s not matched in model_paths=%s", self.cfg.id, model_path, list(model_paths.values()))
         
         sizes = hm.get("_model_sizes") or {}
         if model.get("path") and model.get("path") in sizes:

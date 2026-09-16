@@ -105,8 +105,6 @@ for pid in $(pgrep -x "{process_name}"); do
     }}
   }}')
 
-  echo "EXTRACTED:$pid:model=[$model] mmproj=[$mmproj]"
-
   if [ -n "$model" ]; then
     echo "MODEL:$pid:$model"
   fi
