@@ -18,7 +18,7 @@
           <div class="m"><span class="v">{{ elapsedVal(p) || '—' }}</span><span class="k">{{ t('llamaProcess.uptime') }}</span></div>
         </div>
 
-        <div v-if="service && service.active" class="service mono">
+        <div v-if="serviceActive" class="service mono">
           <span class="k">{{ t('llamaProcess.service') }}</span><span class="v">{{ service.unit }} · {{ service.active }}</span>
           <span class="k">{{ t('llamaProcess.started_at') }}</span><span class="v">{{ service.since || '—' }}</span>
           <span class="k">{{ t('llamaProcess.cumulative_cpu') }}</span><span class="v">{{ service.cpu_total || '—' }}</span>
@@ -65,6 +65,13 @@ const props = defineProps({
   llamaPort: { type: [Number, String], default: null },
   // hostId для персистентного состояния collapse (CHANGE 2)
   hostId: { type: String, required: true }
+})
+
+// Показываем блок сервиса только когда systemd unit реально активен;
+// процессы без сервиса (внешний лаунчер) не должны показывать "inactive (dead)"
+const serviceActive = computed(() => {
+  const a = (props.service && props.service.active) || ''
+  return a.trim().toLowerCase().startsWith('active')
 })
 
 // ---- CHANGE 2: Persisted collapse state ----

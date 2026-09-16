@@ -794,21 +794,21 @@ def _parse_single_proc(pid: int, proc_lines: List[str], diff: DiffEngine, ts: fl
                 proc["cpu_pct_realtime"] = diff.process_cpu_pct(
                     "proc:%s:%s" % (host_id, pid), ts, utime + stime)
         elif line.startswith("PROC_RSS:"):
-            proc["rss_mb"] = _i(line[11:], 0) // 1024
+            proc["rss_mb"] = _i(line[len("PROC_RSS:"):], 0) // 1024
         elif line.startswith("PROC_VSZ:"):
-            proc["vsz_mb"] = _i(line[11:], 0) // (1024 * 1024)
+            proc["vsz_mb"] = _i(line[len("PROC_VSZ:"):], 0) // (1024 * 1024)
         elif line.startswith("PROC_THREADS:"):
-            proc["threads"] = _i(line[15:], 0)
+            proc["threads"] = _i(line[len("PROC_THREADS:"):], 0)
         elif line.startswith("PROC_PS:"):
-            f = line[10:].split()
+            f = line[len("PROC_PS:"):].split()
             if len(f) >= 3:
                 proc["cpu_pct_lifetime"] = _f(f[0])
                 proc["mem_pct"] = _f(f[1])
                 proc["elapsed"] = f[2]
         elif line.startswith("PROC_CMDLINE:"):
-            proc["cmdline"] = line[13:].strip()
+            proc["cmdline"] = line[len("PROC_CMDLINE:"):].strip()
         elif line.startswith("PROC_PORT:"):
-            proc["llama_port"] = _i(line[12:])
+            proc["llama_port"] = _i(line[len("PROC_PORT:"):])
         idx += 1
     return proc
 

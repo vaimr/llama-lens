@@ -123,7 +123,8 @@ def create_app(base_dir: Optional[str] = None) -> FastAPI:
                 return FileResponse(candidate)
         index = os.path.join(dist, "index.html")
         if os.path.isfile(index):
-            return FileResponse(index)
+            # index.html не кэшировать: иначе браузер держит старый бандл после обновления
+            return FileResponse(index, headers={"Cache-Control": "no-cache"})
         from fastapi.responses import PlainTextResponse
         return PlainTextResponse(
             "前端尚未构建：cd frontend && npm install && npm run build（或运行 ./run.sh）")
