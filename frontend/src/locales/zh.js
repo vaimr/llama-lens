@@ -188,7 +188,9 @@ export default {
     last_task: '上一任务',
     prefill_time: '预填充耗时',
     gen_time: '生成耗时',
-    total_time: '总耗时'
+    total_time: '总耗时',
+    slot_prev: '上一个 Slot',
+    slot_next: '下一个 Slot'
   },
   memPanel: {
     title: '内存',
@@ -257,7 +259,9 @@ export default {
     used: '已用',
     no_data_ssh: '数据不可用（SSH 断开）',
     mem_used: '内存已用',
-    total: '总量'
+    total: '总量',
+    prefill: '预填充',
+    prefill_tip: '上次测量的预填充速度'
   },
   topProcessTable: {
     no_data: '无数据',

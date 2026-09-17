@@ -188,7 +188,9 @@ export default {
     last_task: 'Последняя задача',
     prefill_time: 'Время префилла',
     gen_time: 'Время генерации',
-    total_time: 'Общее время'
+    total_time: 'Общее время',
+    slot_prev: 'Предыдущий слот',
+    slot_next: 'Следующий слот'
   },
   memPanel: {
     title: 'Память',
@@ -257,7 +259,9 @@ export default {
     used: 'Использовано',
     no_data_ssh: 'Данные недоступны (SSH отключён)',
     mem_used: 'ОЗУ исп.',
-    total: 'Всего'
+    total: 'Всего',
+    prefill: 'Префилл',
+    prefill_tip: 'Последняя измеренная скорость префилла'
   },
   topProcessTable: {
     no_data: 'Нет данных',

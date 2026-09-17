@@ -188,7 +188,9 @@ export default {
     last_task: 'Last Task',
     prefill_time: 'Prefill Time',
     gen_time: 'Generation Time',
-    total_time: 'Total Time'
+    total_time: 'Total Time',
+    slot_prev: 'Previous slot',
+    slot_next: 'Next slot'
   },
   memPanel: {
     title: 'Memory',
@@ -257,7 +259,9 @@ export default {
     used: 'Used',
     no_data_ssh: 'Data unavailable (SSH disconnected)',
     mem_used: 'Mem used',
-    total: 'Total'
+    total: 'Total',
+    prefill: 'Prefill',
+    prefill_tip: 'Last measured prefill speed'
   },
   topProcessTable: {
     no_data: 'No data',

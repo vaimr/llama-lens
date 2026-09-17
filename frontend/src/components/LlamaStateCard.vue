@@ -10,18 +10,26 @@
     <template v-if="logAvailable">
       <div class="kv" v-if="state.task_id !== null && state.task_id !== undefined">
         <span class="k">{{ t('llamaState.task_id') }}</span>
-        <span class="v mono">#{{ state.task_id }}<span v-if="state.is_child" class="dim"> · {{ t('llamaState.child_task') }}</span><span v-if="slotInfo" class="dim"> · {{ t('llamaState.slot') }} {{ slotInfo }}</span></span>
+        <span class="v mono">#{{ state.task_id }}<span v-if="state.is_child" class="dim"> · {{ t('llamaState.child_task') }}</span>
+          <template v-if="slotInfo">
+            <span class="slot-nav">
+              <button class="slot-btn slot-prev" :title="t('llamaState.slot_prev')" @click="slotIdx = Math.max(0, slotIdx - 1)" :disabled="slots.length <= 1">‹</button>
+              <span class="slot-indicator">{{ slotInfo }}</span>
+              <button class="slot-btn slot-next" :title="t('llamaState.slot_next')" @click="slotIdx = Math.min(slots.length - 1, slotIdx + 1)" :disabled="slots.length <= 1">›</button>
+            </span>
+          </template>
+        </span>
       </div>
 
       <template v-if="phase === 'prompt_processing'">
         <div class="progress-wrap">
-          <div class="bar"><i class="green" :style="{ width: (state.prompt_progress || 0) * 100 + '%' }"></i></div>
-          <span class="mono small dim">{{ ((state.prompt_progress || 0) * 100).toFixed(0) }}%</span>
+          <div class="bar"><i class="green" :style="{ width: (slotPromptProgress || 0) * 100 + '%' }"></i></div>
+          <span class="mono small dim">{{ ((slotPromptProgress || 0) * 100).toFixed(0) }}%</span>
         </div>
         <div class="stat3">
           <div class="stat">
             <span class="s-label">{{ t('llamaState.prompt_speed') }}</span>
-            <span class="s-val mono green">{{ state.prompt_speed_tps === null ? '—' : state.prompt_speed_tps.toFixed(1) }}</span>
+            <span class="s-val mono green">{{ slotPromptSpeed === null ? '—' : slotPromptSpeed.toFixed(1) }}</span>
             <span class="s-unit">t/s</span>
           </div>
           <div class="stat">
@@ -31,7 +39,7 @@
           </div>
           <div class="stat">
             <span class="s-label">{{ t('llamaState.elapsed') }}</span>
-            <span class="s-val mono">{{ state.prompt_elapsed_s === null ? '—' : state.prompt_elapsed_s.toFixed(1) }}</span>
+            <span class="s-val mono">{{ slotPromptElapsed === null ? '—' : slotPromptElapsed.toFixed(1) }}</span>
             <span class="s-unit">s</span>
           </div>
         </div>
@@ -141,7 +149,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { fmtNum, fmtDuration } from '../utils'
 import { t } from '../i18n'
 
@@ -157,14 +165,57 @@ const logAvailable = computed(() => !!(props.log && props.log.available))
 const state = computed(() => (props.log && props.log.state) || {})
 const lastTask = computed(() => (props.log && props.log.last_task) || null)
 const ctx = computed(() => (props.log && props.log.context) || {})
-const activeSlot = computed(() => {
-  const list = props.slots || []
-  const tid = state.value.task_id
-  return list.find((s) => s.is_processing && (tid === null || tid === undefined || s.id_task === tid))
-    || list.find((s) => s.is_processing)
-    || null
+
+// --- Slot navigation ---
+function findActiveSlotIndex(slots, tid) {
+  const list = slots || []
+  if (!list.length) return 0
+  const idx = list.findIndex((s) => s.is_processing && (tid === null || tid === undefined || s.id_task === tid))
+  if (idx !== -1) return idx
+  const idx2 = list.findIndex((s) => s.is_processing)
+  if (idx2 !== -1) return idx2
+  return 0
+}
+
+const slotIdx = ref(findActiveSlotIndex(props.slots, state.value.task_id))
+
+watch(() => props.slots, (newSlots) => {
+  // Clamp when slots list shrinks
+  if (slotIdx.value >= newSlots.length) {
+    slotIdx.value = Math.max(0, newSlots.length - 1)
+  }
 })
-const promptTotal = computed(() => (activeSlot.value && activeSlot.value.n_prompt_tokens) || null)
+
+const slots = computed(() => props.slots || [])
+const activeSlot = computed(() => {
+  const list = slots.value
+  if (!list.length) return null
+  return list[slotIdx.value] || null
+})
+
+// prompt_progress / prompt_elapsed_s exist only in global log state;
+// per-slot progress is computed from processed/total when available
+const slotPromptProgress = computed(() => {
+  const s = activeSlot.value
+  if (s && s.n_prompt_tokens && s.n_prompt_tokens_processed !== null && s.n_prompt_tokens_processed !== undefined) {
+    return Math.min(1, s.n_prompt_tokens_processed / s.n_prompt_tokens)
+  }
+  return state.value.prompt_progress || 0
+})
+const slotPromptSpeed = computed(() => {
+  const s = activeSlot.value
+  const v = s ? s.prompt_speed_tps : null
+  return v === null || v === undefined ? null : v
+})
+const slotPromptElapsed = computed(() => {
+  const v = state.value.prompt_elapsed_s
+  return v === null || v === undefined ? null : v
+})
+
+const promptTotal = computed(() => {
+  const s = activeSlot.value
+  return s && s.n_prompt_tokens !== null && s.n_prompt_tokens !== undefined ? s.n_prompt_tokens : null
+})
 const promptProcessed = computed(() => {
   const s = activeSlot.value
   const n = s && s.n_prompt_tokens_processed
@@ -175,6 +226,7 @@ const cacheHit = computed(() => {
   if (!s || !s.n_prompt_tokens || s.n_prompt_tokens_cache === null || s.n_prompt_tokens_cache === undefined) return null
   return s.n_prompt_tokens_cache / s.n_prompt_tokens
 })
+
 // MTP 接受率（task_end 行更新，与总览仪表同源；<65 红 / 65-80 黄 / ≥80 绿）
 const mtp = computed(() => (props.log && props.log.mtp) || {})
 const mtpClass = computed(() => {
@@ -189,7 +241,7 @@ const graphsReused = computed(() => {
   return g === null || g === undefined ? null : g
 })
 const slotInfo = computed(() => {
-  const list = props.slots || []
+  const list = slots.value
   if (!list.length) return null
   const a = activeSlot.value
   const id = a && a.id !== null && a.id !== undefined ? a.id : '?'
@@ -304,4 +356,49 @@ const cfgRows = computed(() => {
 .cfg { display: inline-flex; gap: 6px; font-size: 10px; }
 .cfg-k { color: var(--text-faint); }
 .cfg-v { color: var(--text-dim); }
+
+/* Slot navigation */
+.slot-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+}
+.slot-indicator {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.slot-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  background: rgba(16, 24, 40, 0.55);
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.slot-btn:hover:not(:disabled) {
+  color: var(--cyan);
+  border-color: var(--card-border-hover);
+  background: rgba(0, 229, 255, 0.08);
+}
+.slot-btn:active:not(:disabled) {
+  background: rgba(0, 229, 255, 0.15);
+}
+.slot-btn:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
+}
+.slot-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
 </style>

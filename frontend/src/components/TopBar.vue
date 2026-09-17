@@ -11,8 +11,8 @@
       <span class="stat" :class="genLevel" :title="genTip">
         <span class="k">{{ t('topBar.speed') }}</span><span class="v mono">{{ genText }}</span>
       </span>
-      <span class="stat" :class="mtpLevel" :title="mtpTip">
-        <span class="k">MTP</span><span class="v mono">{{ mtpText }}</span>
+      <span class="stat" :class="prefillLevel" :title="prefillTip">
+        <span class="k">{{ t('topBar.prefill') }}</span><span class="v mono">{{ prefillText }}</span>
       </span>
       <span class="stat" :class="ctxLevel" :title="ctxTip">
         <span class="k">{{ t('topBar.context') }}</span><span class="v mono">{{ ctxText }}</span>
@@ -31,8 +31,11 @@
     <div class="right">
       <span v-if="gpuTemp !== null" class="temp-badge" :class="tempLevel" :title="`${Math.round(gpuTemp)}°C`">
         <svg class="thermo" viewBox="0 0 16 24" width="14" height="22" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M8 2a4.5 4.5 0 0 0-4.5 4.5c0 2.8 2 5.5 3.5 7.2V18a1 1 0 1 0 2 0v-4.3c1.5-1.7 3.5-4.4 3.5-7.2A4.5 4.5 0 0 0 8 2z"/>
-          <circle cx="8" cy="18" r="2"/>
+          <rect x="5" y="1" width="6" height="16" rx="3"/>
+          <circle cx="8" cy="20" r="3.5"/>
+          <line x1="8" y1="7" x2="11" y2="7"/>
+          <line x1="8" y1="10" x2="11" y2="10"/>
+          <line x1="8" y1="13" x2="11" y2="13"/>
         </svg>
         <span class="tv">{{ gpuTemp.toFixed(0) }}°</span>
       </span>
@@ -57,7 +60,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { fmtTokens, fmtGB, alertLevel } from '../utils'
 import LiveClock from './LiveClock.vue'
 import LanguageSwitcher from './LanguageSwitcher.vue'
@@ -82,13 +85,12 @@ const st = computed(() => props.stats || {})
 const alerts = computed(() => st.value.alerts || [])
 const num = (v) => (v === null || v === undefined || Number.isNaN(v) ? null : v)
 
+// --- Generation speed (gen only, no fallback) ---
 const genText = computed(() => {
   const s = st.value
   if (!s.online) return '—'
-  const p = num(s.prompt)
   const g = num(s.gen)
-  const v = g > 0 ? g : p
-  return v === null || v <= 0 ? '—' : `${v.toFixed(1)} t/s`
+  return g === null || g <= 0 ? '—' : `${g.toFixed(1)} t/s`
 })
 const genTip = computed(() => {
   const s = st.value
@@ -97,13 +99,33 @@ const genTip = computed(() => {
 })
 const genLevel = computed(() => (st.value.online ? 'normal' : 'off'))
 
-const mtpText = computed(() => {
-  const v = num(st.value.mtp)
-  return v === null ? '—' : `${v.toFixed(1)}%`
-})
-const mtpTip = computed(() => (num(st.value.mtp) === null ? t('topBar.wait_task_end') : t('topBar.mtp_acceptance')))
-const mtpLevel = computed(() => (num(st.value.mtp) === null ? 'off' : alertLevel(alerts.value, 'mtp')))
+// --- Prefill speed with last-non-zero hold ---
+const prefillLast = ref(null)
+const prefillNeverMeasured = ref(true)
 
+watch(() => st.value.prompt, (val) => {
+  const p = num(val)
+  if (p !== null && p > 0) {
+    prefillLast.value = p
+    prefillNeverMeasured.value = false
+  }
+})
+
+const prefillText = computed(() => {
+  const s = st.value
+  if (!s.online) return '—'
+  if (prefillNeverMeasured.value) return '—'
+  const v = prefillLast.value
+  return v === null || v <= 0 ? '—' : `${v.toFixed(1)} t/s`
+})
+const prefillTip = computed(() => t('topBar.prefill_tip'))
+const prefillLevel = computed(() => {
+  if (!st.value.online) return 'off'
+  const v = prefillLast.value
+  return v === null || v <= 0 ? 'off' : 'normal'
+})
+
+// --- Context ---
 const ctxText = computed(() => {
   const s = st.value
   const r = num(s.ctxRemain)
@@ -117,6 +139,7 @@ const ctxTip = computed(() => {
 })
 const ctxLevel = computed(() => (num(st.value.ctxRemain) === null ? 'off' : alertLevel(alerts.value, 'ctx')))
 
+// --- GPU chips ---
 const gpuChips = computed(() =>
   (st.value.gpus || []).map((g) => ({
     idx: g.idx,
@@ -130,6 +153,7 @@ const gpuChips = computed(() =>
   }))
 )
 
+// --- Memory ---
 const memText = computed(() => {
   const s = st.value
   const u = num(s.memUsed)
@@ -142,12 +166,14 @@ const memTip = computed(() => {
 })
 const memLevel = computed(() => (num(st.value.memUsed) === null ? 'off' : alertLevel(alerts.value, 'mem')))
 
+// --- CPU ---
 const cpuText = computed(() => {
   const v = num(st.value.cpu)
   return v === null ? '—' : `${Math.round(v)}%`
 })
 const cpuLevel = computed(() => (num(st.value.cpu) === null ? 'off' : alertLevel(alerts.value, 'cpu')))
 
+// --- Temperature badge ---
 const tempLevel = computed(() => {
   const t = props.gpuTemp
   if (t === null) return ''
@@ -156,6 +182,7 @@ const tempLevel = computed(() => {
   return ''
 })
 
+// --- Status dots ---
 const dotClass = computed(() => {
   if (props.llamaOnline && props.sshOk) return 'online'
   if (props.sshOk) return 'warn'
@@ -204,8 +231,8 @@ function onModeChange(e) {
   background: rgba(16, 24, 40, 0.55);
   white-space: nowrap;
 }
-.stat .k { font-size: 10px; color: var(--text-faint); }
-.stat .v { font-size: 12px; color: var(--text); }
+.stat .k { font-size: 10px; color: var(--text-dim); font-weight: 500; }
+.stat .v { font-size: 12px; color: var(--text); font-weight: 600; }
 .stat.warn .v { color: var(--amber); }
 .stat.danger .v { color: var(--red); }
 .stat.off .v { color: var(--text-faint); }
