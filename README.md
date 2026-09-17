@@ -1,8 +1,15 @@
-# llama灵境
+# 🚀 LlamaLens（llama灵境）— llama.cpp 实时监控面板
+
+> 为 llama.cpp `llama-server` 而生的多主机实时监控：token 速度 / GPU / 上下文 / MTP 接受率，80+ 指标每秒推送。Docker 两行命令上线，对被监控主机零 agent、只读采集。
+
+[![Stars](https://img.shields.io/github/stars/vaimr/llama-lens?style=social)](https://github.com/vaimr/llama-lens/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/vaimr/llama-lens)](https://github.com/vaimr/llama-lens/commits)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Vue](https://img.shields.io/badge/Vue-3-4FC08D?logo=vue.js&logoColor=white)](https://vuejs.org/)
+[![Go](https://img.shields.io/badge/CLI-Go%201.24-00ADD8?logo=go&logoColor=white)](cli/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](Dockerfile)
 
 [![English Docs](https://img.shields.io/badge/English-Docs-blue)](docs/README.en.md) [![Русская документация](https://img.shields.io/badge/Русская-документация-blue)](docs/README.ru.md)
-
-llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 
 - **门户页**：所有主机状态一览（状态/模型/token 速度/GPU/CPU/内存）
 - **单主机详情**：token 速度 / GPU 按卡聚合 / CPU（每核）/ 内存 / 磁盘 / 网络 / 进程 / 模型 / Slot / 事件流，80+ 数据项
@@ -11,6 +18,23 @@ llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 - **9 套主题**：Aurora / Terminal / Light / Monokai / Nord / Dracula / Synthwave '84 / Tokyo Night / Matrix
 - **双语界面**：English / Русский，右上角语言切换
 - **部署**：原生单进程或 Docker 镜像，二选一
+
+## ⭐ 为什么值得一个 Star
+
+- **顶替一整套 Prometheus + Grafana** —— 单进程 / 单 Docker 容器开箱即用，专为 llama.cpp 调优
+- **llama.cpp 原生指标** —— token 生成/预填充速度、上下文占用、MTP 接受率、Slot 状态，通用监控给不了
+- **30 秒上线** —— `docker compose up -d --build`，打开浏览器即见实时面板
+- **零侵入** —— 对被监控主机只执行只读命令：不装 agent、不写任何文件
+- **附赠本机 TUI** —— `llamalens` 单二进制约 8 MB、零依赖，SSH 登录即可看实时状态
+- **活跃开发** —— v1.2.0（2026-09-17）已发布，持续迭代
+
+如果它帮到了你，一颗 ⭐ 能让更多人发现这个项目。
+
+## 📸 界面截图
+
+门户页（中文界面）：
+
+![LlamaLens 门户页（中文）](docs/ZH.png)
 
 ![alt text](docs/image0.png)
 
@@ -27,6 +51,8 @@ llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 ✅ **Docker 镜像部署**（2026-08-30）—— 多阶段 Dockerfile + docker-compose，凭证运行时挂载，内置健康检查。
 
 ✅ **v1.1.0**（2026-09-01）—— 本地 CLI（llamalens TUI）+ 离线部署包 + 稳定性优化，详见「版本记录」。
+
+✅ **v1.2.0**（2026-09-17）—— 三语 README 刷新：新首屏结构、徽章、对比表、本地化门户截图。
 
 ## 文档索引
 
@@ -64,7 +90,7 @@ llama.cpp llama-server 多主机实时监控面板（英文名：LlamaLens）。
 
 > 面板对被监控主机只做**只读**采集：llama-server HTTP 轮询 + SSH 只读命令（ps/df/nvidia-smi/journalctl 等），不写入被监控主机。
 
-## 快速开始
+## ⚡ 快速开始（30 秒出结果）
 
 ### 方式一：原生部署
 
@@ -85,6 +111,18 @@ docker compose up -d --build                      # http://<主机>:8000
 ```
 
 详细步骤见下文[使用教程](#使用教程)（含被监控主机的 systemd 配置）。
+
+## 🆚 与替代方案对比
+
+| | LlamaLens | Prometheus + Grafana | nvtop / nvidia-smi | 手写 curl /slots |
+|---|:---:|:---:|:---:|:---:|
+| llama.cpp 专属指标（token 速度 / MTP / Slot / 上下文） | ✅ 内置 | ❌ 需自建 exporter | ❌ | 自行解析 |
+| 部署成本 | 单容器 / 单进程 | Prometheus + Grafana + exporter | 单二进制 | — |
+| 被监控主机需装 agent | ❌ 不需要（SSH 只读） | ✅ 需 node_exporter 等 | 仅本机 | — |
+| 秒级实时推送 | ✅ WebSocket 1s | 抓取粒度通常 ≥5s | 手动刷新 | 手动 |
+| 阈值两级告警着色 | ✅ | 需配置 Alertmanager | ❌ | ❌ |
+| 无浏览器本机 TUI | ✅ 零依赖单二进制 | ❌ | ✅ | ❌ |
+| 9 主题 / 3 语言界面 | ✅ | ❌ | ❌ | ❌ |
 
 ## 使用教程
 
@@ -537,3 +575,12 @@ llamalens --no-color
 |---|---|---|
 | v1.0.0 | 2026-08-29 | 首个发布版本：多主机实时监控（门户 + 单主机详情）、WS 1s 实时推送、阈值飘红、Top CPU 精度修复（/proc stat 直读）、SSH 断连自愈 |
 | v1.1.0 | 2026-09-01 | 本地 CLI（llamalens TUI，零依赖单二进制，与 Web 同源采集/阈值/事件）；Docker 离线 tgz 交付流程；后端稳定性（异步日志防事件循环阻塞、CUDA 一次性采集、WS 关闭限时、进程名 15 字符 cmdline 回退）；前端标签页隐藏暂停轮询；TUI 修复（GPU 占用 0MB、ANSI256 红色不可见、任务卡状态以 /slots 为准、GPU 进程按卡归属、--dump-frame/--no-color 诊断） |
+| v1.2.0 | 2026-09-17 | 三语 README 刷新：面向 star 的结构优化（徽章、why-star、30 秒快速开始、替代方案对比表、本地化门户截图），无代码变更 |
+
+---
+
+## ⭐ 觉得有用？
+
+点个 Star 是支持这个项目最好的方式，也能让更多人发现它。
+
+[![Star this repo](https://img.shields.io/badge/⭐-Star%20this%20repo-yellow?style=for-the-badge)](https://github.com/vaimr/llama-lens/stargazers)

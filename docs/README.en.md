@@ -12,6 +12,23 @@ Real-time multi-host monitoring panel for the llama.cpp `llama-server` inference
 - **Interface languages** — English / Русский, switchable from a compact dropdown in the top-right corner
 - **Deployment** — native single process or Docker image, your choice
 
+## ⭐ Why it deserves a star
+
+- **Replaces a whole Prometheus + Grafana stack** — a single process / a single Docker container, tuned for llama.cpp
+- **llama.cpp-native metrics** — token generation / prefill speed, context usage, MTP acceptance, slot states: what generic monitors don't give you
+- **Up in 30 seconds** — `docker compose up -d --build`, open the browser, see live data
+- **Zero intrusion** — read-only commands over SSH; no agents installed, nothing written to monitored hosts
+- **Bonus local TUI** — `llamalens`, a single ~8 MB zero-dependency binary; SSH in and watch live
+- **Actively developed** — v1.2.0 released 2026-09-17
+
+If it saves you time, a ⭐ helps others find it.
+
+## 📸 Screenshots
+
+Portal page (English UI):
+
+![LlamaLens portal (English)](En.png)
+
 ![alt text](image0.png)
 
 ![alt text](image.png)
@@ -27,6 +44,8 @@ Real-time multi-host monitoring panel for the llama.cpp `llama-server` inference
 ✅ **Docker image deployment** (2026-08-30) — multi-stage Dockerfile + docker-compose, credentials mounted at runtime, built-in health check.
 
 ✅ **v1.1.0** (2026-09-01) — local CLI (`llamalens` TUI) + offline deployment bundle + stability improvements, see "Version history".
+
+✅ **v1.2.0** (2026-09-17) — trilingual README refresh: new top structure, badges, comparison table, localized portal screenshots.
 
 ## Documentation
 
@@ -64,7 +83,7 @@ Real-time multi-host monitoring panel for the llama.cpp `llama-server` inference
 
 > The panel performs **read-only** collection against monitored hosts: llama-server HTTP polling + read-only SSH commands (ps/df/nvidia-smi/journalctl and so on). Nothing is written to the monitored hosts.
 
-## Quick start
+## ⚡ Quick start (result in 30 seconds)
 
 ### Option 1: native deployment
 
@@ -85,6 +104,18 @@ docker compose up -d --build                     # http://<host>:8000
 ```
 
 Detailed steps: see [Usage guide](#usage-guide) below (including systemd configuration on monitored hosts).
+
+## 🆚 Comparison with alternatives
+
+| | LlamaLens | Prometheus + Grafana | nvtop / nvidia-smi | hand-rolled curl /slots |
+|---|:---:|:---:|:---:|:---:|
+| llama.cpp-native metrics (token speed / MTP / slots / context) | ✅ built in | ❌ DIY exporter | ❌ | DIY parsing |
+| Deployment footprint | single container / process | Prometheus + Grafana + exporters | single binary | — |
+| Agent on monitored hosts | ❌ none (read-only SSH) | ✅ node_exporter etc. | local only | — |
+| Per-second real-time push | ✅ WebSocket 1s | scrape interval usually ≥5s | manual refresh | manual |
+| Two-level threshold coloring | ✅ | Alertmanager config | ❌ | ❌ |
+| Local TUI without a browser | ✅ zero-dependency binary | ❌ | ✅ | ❌ |
+| 9 themes / 3 UI languages | ✅ | ❌ | ❌ | ❌ |
 
 ## Usage guide
 
@@ -531,3 +562,12 @@ llamalens --no-color
 |---|---|---|
 | v1.0.0 | 2026-08-29 | First release: multi-host real-time monitoring (portal + per-host detail), WS 1s real-time push, threshold color alerts, Top CPU precision fix (/proc stat direct reads), SSH disconnect self-healing |
 | v1.1.0 | 2026-09-01 | Local CLI (llamalens TUI, zero-dependency single binary, same collectors/thresholds/events as the web); Docker offline tgz delivery; backend stability (async logging to avoid event-loop blocking, one-shot CUDA collection, WS close timeouts, 15-char process-name cmdline fallback); frontend tab-hidden pause polling; TUI fixes (GPU 0MB usage, ANSI256 red invisibility, task card state based on /slots, GPU process per-card attribution, --dump-frame/--no-color diagnostics) |
+| v1.2.0 | 2026-09-17 | README refresh across all three languages: star-oriented structure (badges, why-star, 30-second quick start, alternatives comparison table, localized portal screenshots); no code changes |
+
+---
+
+## ⭐ Found this useful?
+
+A star is the best way to say thanks — and it helps others find the project.
+
+[![Star this repo](https://img.shields.io/badge/⭐-Star%20this%20repo-yellow?style=for-the-badge)](https://github.com/vaimr/llama-lens/stargazers)
