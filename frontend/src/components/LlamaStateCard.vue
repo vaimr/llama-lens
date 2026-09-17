@@ -243,9 +243,9 @@ const graphsReused = computed(() => {
 const slotInfo = computed(() => {
   const list = slots.value
   if (!list.length) return null
-  const a = activeSlot.value
-  const id = a && a.id !== null && a.id !== undefined ? a.id : '?'
-  return `${id}/${list.length}`
+  // 1-based display numbering (llama.cpp slot ids are 0-based)
+  const pos = Math.min(slotIdx.value + 1, list.length)
+  return `${pos}/${list.length}`
 })
 const prefillEta = computed(() => {
   const st = state.value

@@ -2,7 +2,7 @@
   <div class="slots">
     <div v-for="slot in slots" :key="slot.id" class="slot glass">
       <div class="panel-head">
-        <span class="panel-title">Slot {{ slot.id }}</span>
+        <span class="panel-title">Slot {{ slot.id + 1 }}</span>
         <span class="badge" :class="slot.is_processing ? 'ok' : 'dim'">
           {{ slot.is_processing ? t('slotTable.processing') : t('slotTable.idle') }}
         </span>
